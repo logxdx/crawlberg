@@ -51,6 +51,13 @@ All notable changes to crawlberg are documented here.
   unsendable, but is being dropped on another thread` on stderr after an async call, and the
   engine was then never freed: its connections and its browser stayed until the process ended.
   The engine handle is now a class that any thread can release. (#641)
+- An engine made by `create_engine` no longer leaves its Chrome running. The Chrome stops, and its
+  profile directory is removed, when the last clone of the engine handle is dropped, and when the
+  process exits through the C runtime with an engine still alive. No new call is needed. A process
+  that is killed by a signal or aborts still leaves its Chrome. (#594)
+- A browser fetch no longer takes five seconds longer on a Chrome that has no tab of its own, such
+  as the Chromium headless shell that Playwright installs. The request check waited for an event
+  that `chromiumoxide` holds back for the last page of a browser. (#595)
 
 ## [1.10.3] - 2026-10-09
 
