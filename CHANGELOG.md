@@ -51,6 +51,11 @@ All notable changes to crawlberg are documented here.
   unsendable, but is being dropped on another thread` on stderr after an async call, and the
   engine was then never freed: its connections and its browser stayed until the process ended.
   The engine handle is now a class that any thread can release. (#641)
+- Report a page whose conversion to Markdown fails as an error, not as a page with no Markdown. A
+  scrape returns `other: could not convert <page> to Markdown: <cause>`. A crawl sends that error
+  for the page, follows no links from it, and continues; a failed seed is the error of the crawl.
+- Do not convert a binary or PDF response in a scrape. Its `markdown` is empty and `was_skipped`
+  is set, as in a crawl.
 
 ## [1.10.3] - 2026-10-09
 
