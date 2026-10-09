@@ -4,6 +4,13 @@ All notable changes to crawlberg are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Add the `ConversionFailed` error for a page that was fetched but could not be converted to
+  Markdown. Its text starts with `conversion_failed:`. Every binding has it as its own error
+  class, the API server reports it as `CONVERSION_FAILED` with status 500, and the MCP server
+  returns it as a tool error.
+
 ### Changed
 
 - **A crawl now treats two addresses that differ only by a trailing slash as two pages.** `/docs`
@@ -52,8 +59,9 @@ All notable changes to crawlberg are documented here.
   engine was then never freed: its connections and its browser stayed until the process ended.
   The engine handle is now a class that any thread can release. (#641)
 - Report a page whose conversion to Markdown fails as an error, not as a page with no Markdown. A
-  scrape returns `other: could not convert <page> to Markdown: <cause>`. A crawl sends that error
-  for the page, follows no links from it, and continues; a failed seed is the error of the crawl.
+  scrape returns `conversion_failed: could not convert <page> to Markdown: <cause>`. A crawl sends
+  that error for the page, follows no links from it, and continues; a failed seed is the error of
+  the crawl.
 - Do not convert a binary or PDF response in a scrape. Its `markdown` is empty and `was_skipped`
   is set, as in a crawl.
 
