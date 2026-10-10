@@ -40,6 +40,10 @@ browser-chromiumoxide = [
     "native-runtime",
 ]
 browser-native = ["dep:crawlberg-browser", "native-runtime"]
+# ~keep The native backend's wreq/BoringSSL transport, used when `BrowserMode::Stealth` selects
+# ~keep it. Without this `stealth: true` reaches `crawlberg-browser` with the client compiled out,
+# ~keep and the native backend fetches over plain reqwest whatever the mode says.
+browser-native-stealth = ["browser-native", "crawlberg-browser?/stealth"]
 # ~keep `liter-llm/tower` supplies ManagedClient and InFlightLimitLayer; without it the
 # ~keep in-flight bound in `LlmExtractorConfig` has no middleware stack to attach to.
 ai = ["dep:liter-llm", "liter-llm/tower", "dep:minijinja"]
