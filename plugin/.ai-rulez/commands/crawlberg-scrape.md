@@ -1,0 +1,6 @@
+---
+name: crawlberg-scrape
+description: Scrape a page to Markdown
+---
+
+Scrape $ARGUMENTS with `crawlberg scrape`. Read the scraping-html-to-markdown skill first. Use Markdown output unless structured metadata is requested; report fetch or browser failures rather than inventing page content.

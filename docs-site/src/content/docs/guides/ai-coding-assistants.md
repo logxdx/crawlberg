@@ -11,7 +11,7 @@ The plugin shells out to the `crawlberg` CLI. Install it from the [Installation]
 The plugin, its per-platform manifests, and version history live in this repository's self-hosted [`xberg-io/crawlberg`](https://github.com/xberg-io/crawlberg) marketplace.
 
 :::note
-The plugin registers the `crawlberg` MCP server for you. To configure or run that server standalone, see the [MCP Server guide](/guides/mcp-server/) and the [MCP reference](/reference/mcp/).
+MCP-capable integrations register the `crawlberg` MCP server for you. Pi uses skills and CLI access instead. To configure or run that server standalone, see the [MCP Server guide](/guides/mcp-server/) and the [MCP reference](/reference/mcp/).
 :::
 
 ## Installing
@@ -70,6 +70,25 @@ droid plugin install crawlberg@crawlberg
 copilot plugin marketplace add https://github.com/xberg-io/crawlberg
 copilot plugin install crawlberg@crawlberg
 ```
+
+</details>
+
+<details>
+<summary><strong>Pi</strong></summary>
+
+From a checkout of this repository:
+
+```bash
+pi install ./plugin
+```
+
+After the next plugin release, install the same package used by OpenCode:
+
+```bash
+pi install npm:@xberg-io/opencode-crawlberg
+```
+
+Pi loads the bundled skills and prompt templates. Use `/crawlberg-scrape` or `/crawlberg-crawl` with the input as arguments. Install the `crawlberg` CLI separately for shell access. This package does not register MCP servers, hooks, or native Pi extensions.
 
 </details>
 
