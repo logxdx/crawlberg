@@ -3,6 +3,14 @@ requires = ['hatchling>=1.27']
 build-backend = 'hatchling.build'
 
 [project]
+authors = [
+  { name = "Na'aman Hirschfeld", email = "naaman@xberg.io" },
+  { name = "Tobias Perlstein", email = "tobias@xberg.io" },
+]
+maintainers = [
+  { name = "Na'aman Hirschfeld", email = "naaman@xberg.io" },
+  { name = "Tobias Perlstein", email = "tobias@xberg.io" },
+]
 name = 'crawlberg-hermes-plugin'
 version = '1.10.3'
 description = 'Web crawling and scraping with HTML→Markdown and headless-Chrome fallback.'

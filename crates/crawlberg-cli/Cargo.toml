@@ -1,4 +1,5 @@
 [package]
+authors.workspace = true
 name = "crawlberg-cli"
 version.workspace = true
 edition.workspace = true

@@ -2,6 +2,7 @@
 # alef:hash:0090f366fa54d6bf681224ab01413a94ce7ec5be52997f84e233a23dbb9a725f
 
 [package]
+authors.workspace = true
 name = "crawlberg-jni"
 version.workspace = true
 edition = "2024"
