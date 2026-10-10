@@ -36,7 +36,43 @@ use serde::{Deserialize, Serialize};
 pub struct CrawlEngineHandle {
     inner: CrawlEngine,
     #[cfg(feature = "browser")]
-    owned_browser_pool: Option<std::sync::Arc<crate::browser_pool::BrowserPool>>,
+    owned_browser_pool: Option<std::sync::Arc<OwnedBrowserPool>>,
+}
+
+/// The browser pool [`create_engine`] created, shut down when the last handle holding it is gone.
+///
+/// ~keep Without this a binding-created pool was never closed. Language bindings do not expose
+/// ~keep [`shutdown_engine`], and dropping the handle did not drop the browser either: the task
+/// ~keep `BrowserPool::supervise_current` spawns holds the pool state - and so the `Browser`
+/// ~keep whose `kill_on_drop` would end Chrome - until Chrome's CDP handler ends, which only
+/// ~keep happens once Chrome is gone. So every engine whose pool launched Chrome left that Chrome
+/// ~keep running after the engine, and after the host process, had exited.
+#[cfg(feature = "browser")]
+struct OwnedBrowserPool(std::sync::Arc<crate::browser_pool::BrowserPool>);
+
+#[cfg(feature = "browser")]
+impl Drop for OwnedBrowserPool {
+    // ~keep Runs on whatever thread drops the last handle, which for a binding is usually a host
+    // ~keep GC thread with no current runtime. The shutdown is spawned on the runtime that launched
+    // ~keep the browser instead; `tokio::spawn` there would panic and abort the host process.
+    fn drop(&mut self) {
+        let pool = std::sync::Arc::clone(&self.0);
+        if pool.is_shut_down() {
+            return;
+        }
+        let runtime = tokio::runtime::Handle::try_current()
+            .ok()
+            .or_else(|| pool.launch_runtime());
+        match runtime {
+            Some(runtime) => {
+                runtime.spawn(async move { pool.shutdown().await });
+            }
+            None => {
+                // ~keep No runtime ever launched a browser for this pool, so there is none to close.
+                tracing::debug!("dropping a binding browser pool that never launched a browser");
+            }
+        }
+    }
 }
 
 impl CrawlEngineHandle {
@@ -76,8 +112,16 @@ impl CrawlEngineHandle {
         req: CrawlStreamRequest,
     ) -> BoxFuture<'static, Result<BoxStream<'static, Result<CrawlEvent, CrawlError>>, CrawlError>> {
         let engine = self.inner.clone();
+        #[cfg(feature = "browser")]
+        let owner = self.owned_browser_pool.clone();
         Box::pin(async move {
             let stream = engine.crawl_stream(&req.url);
+            // ~keep The stream outlives this handle; it keeps the owned pool open until it ends.
+            #[cfg(feature = "browser")]
+            let stream = stream.map(move |event| {
+                let _ = &owner;
+                event
+            });
             Ok(stream.map(Ok::<CrawlEvent, CrawlError>).boxed())
         })
     }
@@ -96,9 +140,17 @@ impl CrawlEngineHandle {
         req: BatchCrawlStreamRequest,
     ) -> BoxFuture<'static, Result<BoxStream<'static, Result<CrawlEvent, CrawlError>>, CrawlError>> {
         let engine = self.inner.clone();
+        #[cfg(feature = "browser")]
+        let owner = self.owned_browser_pool.clone();
         Box::pin(async move {
             let url_refs: Vec<&str> = req.urls.iter().map(String::as_str).collect();
             let stream = engine.batch_crawl_stream(&url_refs);
+            // ~keep The stream outlives this handle; it keeps the owned pool open until it ends.
+            #[cfg(feature = "browser")]
+            let stream = stream.map(move |event| {
+                let _ = &owner;
+                event
+            });
             Ok(stream.map(Ok::<CrawlEvent, CrawlError>).boxed())
         })
     }
@@ -220,7 +272,7 @@ fn binding_browser_pool(
     config: &mut CrawlConfig,
 ) -> (
     Option<std::sync::Arc<crate::browser_pool::BrowserPool>>,
-    Option<std::sync::Arc<crate::browser_pool::BrowserPool>>,
+    Option<std::sync::Arc<OwnedBrowserPool>>,
 ) {
     // ~keep A named browser profile determines Chrome's user-data directory at launch, while
     // ~keep a shared pool launches before any crawl can claim that profile.
@@ -237,7 +289,10 @@ fn binding_browser_pool(
     // ~keep the pre-pool binding path did, until parked pages have safe lifecycle ownership.
     config.browser.session_affinity = false;
     let pool = crate::browser_pool::BrowserPool::new(binding_browser_pool_config(config));
-    (Some(std::sync::Arc::clone(&pool)), Some(pool))
+    (
+        Some(std::sync::Arc::clone(&pool)),
+        Some(std::sync::Arc::new(OwnedBrowserPool(pool))),
+    )
 }
 
 #[cfg(feature = "browser")]
@@ -260,8 +315,8 @@ fn binding_browser_pool_config(config: &CrawlConfig) -> crate::browser_pool::Bro
 #[cfg_attr(alef, alef(skip))]
 pub async fn shutdown_engine(engine: CrawlEngineHandle) {
     #[cfg(feature = "browser")]
-    if let Some(pool) = engine.owned_browser_pool.as_ref() {
-        pool.shutdown().await;
+    if let Some(owned) = engine.owned_browser_pool.as_ref() {
+        owned.0.shutdown().await;
     }
 
     drop(engine);
@@ -483,6 +538,106 @@ mod tests {
             crate::browser_pool::tests::chrome_process_count_for_profile(&profile),
             0,
             "shutdown must not return while a Chrome-family process still uses its unique profile"
+        );
+    }
+
+    /// Poll `done` until it holds or `timeout` passes; return whether it held.
+    async fn eventually(timeout: std::time::Duration, mut done: impl FnMut() -> bool) -> bool {
+        let deadline = tokio::time::Instant::now() + timeout;
+        while tokio::time::Instant::now() < deadline {
+            if done() {
+                return true;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        done()
+    }
+
+    fn owned_pool_of(handle: &CrawlEngineHandle) -> Arc<crate::browser_pool::BrowserPool> {
+        Arc::clone(
+            handle
+                .inner
+                .config
+                .browser_pool
+                .as_ref()
+                .expect("binding engine must own a browser pool"),
+        )
+    }
+
+    fn browser_engine() -> CrawlEngineHandle {
+        create_engine(Some(CrawlConfig {
+            browser: BrowserConfig {
+                backend: BrowserBackend::Chromiumoxide,
+                ..BrowserConfig::default()
+            },
+            ..CrawlConfig::default()
+        }))
+        .expect("binding engine must build")
+    }
+
+    #[tokio::test]
+    async fn dropping_the_last_handle_shuts_down_the_binding_created_pool() {
+        let handle = browser_engine();
+        let sibling = handle.clone();
+        let pool = owned_pool_of(&handle);
+
+        drop(sibling);
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        assert!(!pool.is_shut_down(), "a live sibling handle must keep the pool open");
+
+        drop(handle);
+        assert!(
+            eventually(std::time::Duration::from_secs(5), || pool.is_shut_down()).await,
+            "dropping the last handle must shut the binding-created pool down"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_crawl_stream_keeps_the_pool_open_after_its_handle_is_dropped() {
+        let handle = browser_engine();
+        let pool = owned_pool_of(&handle);
+        let stream = handle.crawl_stream(CrawlStreamRequest {
+            url: "https://example.invalid/".to_owned(),
+        });
+
+        drop(handle);
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        assert!(!pool.is_shut_down(), "a pending stream must keep the pool open");
+
+        drop(stream);
+        assert!(
+            eventually(std::time::Duration::from_secs(5), || pool.is_shut_down()).await,
+            "the pool must shut down once the stream is gone as well"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    #[allow(clippy::print_stderr, reason = "test-only skip announcement")]
+    async fn dropping_the_last_handle_off_the_runtime_ends_its_chrome_process_family() {
+        const TEST_NAME: &str = "dropping_the_last_handle_off_the_runtime_ends_its_chrome_process_family";
+        let handle = browser_engine();
+        let pool = owned_pool_of(&handle);
+        if crate::browser_pool::tests::expect_chrome_or_skip(TEST_NAME, pool.warm().await).is_none() {
+            return;
+        }
+        let profile = crate::browser_pool::tests::pool_profile_dir(&pool).await;
+        assert!(
+            crate::browser_pool::tests::chrome_process_count_for_profile(&profile) > 0,
+            "the regression must observe the Chrome process family before dropping the handle"
+        );
+
+        // ~keep A host GC thread: no Tokio runtime is current there, so the drop has to find the
+        // ~keep runtime that launched the browser rather than call `tokio::spawn`.
+        std::thread::spawn(move || drop(handle))
+            .join()
+            .expect("dropping a handle off the runtime must not panic");
+
+        assert!(
+            eventually(std::time::Duration::from_secs(20), || {
+                crate::browser_pool::tests::chrome_process_count_for_profile(&profile) == 0
+            })
+            .await,
+            "dropping the last handle must end every Chrome-family process using its profile"
         );
     }
 
