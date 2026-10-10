@@ -274,6 +274,25 @@ copilot plugin install crawlberg@crawlberg
 </details>
 
 <details>
+<summary><strong>Pi</strong></summary>
+
+From a checkout of this repository:
+
+```bash
+pi install ./plugin
+```
+
+After the next plugin release, install the same package used by OpenCode:
+
+```bash
+pi install npm:@xberg-io/opencode-crawlberg
+```
+
+Pi loads the bundled skills and prompt templates. Use `/crawlberg-scrape` or `/crawlberg-crawl` with the input as arguments. Install the `crawlberg` CLI separately for shell access. This package does not register MCP servers, hooks, or native Pi extensions.
+
+</details>
+
+<details>
 <summary><strong>opencode</strong></summary>
 
 Add the package to `opencode.json`:

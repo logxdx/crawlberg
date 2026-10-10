@@ -17,6 +17,22 @@ Self-host:
 /plugin install crawlberg@crawlberg
 ```
 
+### Pi
+
+From a checkout of this repository:
+
+```bash
+pi install ./plugin
+```
+
+After the next plugin release, install the same package used by OpenCode:
+
+```bash
+pi install npm:@xberg-io/opencode-crawlberg
+```
+
+Pi loads the bundled skills and prompt templates. Use `/crawlberg-scrape` or `/crawlberg-crawl` with the input as arguments. Install the `crawlberg` CLI separately for shell access. This package does not register MCP servers, hooks, or native Pi extensions.
+
 ### Binary requirement
 
 The MCP server runs through an auto-installing launcher (`scripts/mcp-launch.sh`): on first use it reuses any working `crawlberg` binary already on `PATH`, then tries `npx`/`uvx`, then Homebrew, then a prebuilt download. No manual install is required for MCP.
@@ -50,7 +66,7 @@ Headless fallback requires Chrome/Chromium on your system. The CLI launches it o
 
 ## MCP / CLI
 
-The plugin wires up the `crawlberg` MCP server via `scripts/mcp-launch.sh`, which resolves or installs a version-matched binary, then runs `crawlberg mcp` over stdio. Override binary resolution with `CRAWLBERG_LAUNCHER=auto|download`.
+MCP-capable integrations wire up the `crawlberg` MCP server via `scripts/mcp-launch.sh`, which resolves or installs a version-matched binary, then runs `crawlberg mcp` over stdio. Override binary resolution with `CRAWLBERG_LAUNCHER=auto|download`.
 
 The MCP server exposes nine tools:
 

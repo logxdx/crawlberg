@@ -1,8 +1,13 @@
-version = "4.0"
+version = "5.0"
 name = "crawlberg"
 description = "Web crawling and scraping with HTML→Markdown and headless-Chrome fallback."
+# Pinned by `ai-rulez migrate v5`: the 4.x default. Remove this line to take the v5 default.
+agents_md = false
+# Pinned by `ai-rulez migrate v5`: the 4.x default. Remove this line to take the v5 default.
+gitignore = true
 
 [plugin]
+runtimes = ["claude", "cursor", "codex", "gemini", "kimi", "opencode", "factory", "hermes", "pi"]
 name = "crawlberg"
 version = "1.10.3"
 display_name = "Crawlberg"
@@ -43,3 +48,7 @@ brand_color = "#7C3AED"
 
 [plugin.gemini]
 context_file_name = "GEMINI.md"
+
+# Pinned by `ai-rulez migrate v5`: the 4.x default. Remove this line to take the v5 default.
+[header]
+hashes = "full"

@@ -1,41 +1,67 @@
 {
-  "author": {
-    "name": "Na'aman Hirschfeld",
-    "email": "naaman@xberg.io"
+  "dependencies": {
+    "@opencode/plugin": "^2.0.20"
   },
-  "contributors": [
-    {
-      "name": "Tobias Perlstein",
-      "email": "tobias@xberg.io"
-    }
-  ],
-  "name": "@xberg-io/opencode-crawlberg",
-  "version": "1.10.3",
   "description": "Web crawling and scraping with HTML→Markdown and headless-Chrome fallback.",
-  "keywords": [
-    "web-scraping",
-    "crawling",
-    "html-to-markdown",
-    "headless-chrome"
-  ],
-  "homepage": "https://xberg.io",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/xberg-io/crawlberg"
-  },
-  "license": "MIT",
-  "type": "module",
-  "main": ".opencode/plugins/crawlberg.js",
   "exports": {
     ".": "./.opencode/plugins/crawlberg.js"
   },
   "files": [
-    ".opencode/",
-    "assets/",
+    ".opencode/ai-rulez-bundle.json",
+    ".opencode/ai-rulez-content.js",
+    ".opencode/commands/crawlberg-crawl.md",
+    ".opencode/commands/crawlberg-scrape.md",
+    ".opencode/plugins/crawlberg.js",
+    ".opencode/skills/automating-the-browser/SKILL.md",
+    ".opencode/skills/crawlberg/SKILL.md",
+    ".opencode/skills/crawling-a-site/SKILL.md",
+    ".opencode/skills/headless-fallback/SKILL.md",
+    ".opencode/skills/mapping-urls/SKILL.md",
+    ".opencode/skills/scraping-html-to-markdown/SKILL.md",
+    ".opencode/skills/serving-the-api/SKILL.md",
+    ".pi/prompts/crawlberg-crawl.md",
+    ".pi/prompts/crawlberg-scrape.md",
+    ".pi/skills/automating-the-browser/SKILL.md",
+    ".pi/skills/crawlberg/SKILL.md",
+    ".pi/skills/crawling-a-site/SKILL.md",
+    ".pi/skills/headless-fallback/SKILL.md",
+    ".pi/skills/mapping-urls/SKILL.md",
+    ".pi/skills/scraping-html-to-markdown/SKILL.md",
+    ".pi/skills/serving-the-api/SKILL.md",
     "README.md",
+    "assets/",
     "scripts/"
   ],
-  "dependencies": {
-    "@opencode/plugin": "^2.0.20"
-  }
+  "homepage": "https://xberg.io",
+  "keywords": [
+    "crawling",
+    "headless-chrome",
+    "html-to-markdown",
+    "pi-package",
+    "web-scraping"
+  ],
+  "license": "MIT",
+  "main": ".opencode/plugins/crawlberg.js",
+  "name": "@xberg-io/opencode-crawlberg",
+  "pi": {
+    "prompts": [
+      "./.pi/prompts/crawlberg-crawl.md",
+      "./.pi/prompts/crawlberg-scrape.md"
+    ],
+    "skills": [
+      "./.pi/skills/automating-the-browser",
+      "./.pi/skills/crawlberg",
+      "./.pi/skills/crawling-a-site",
+      "./.pi/skills/headless-fallback",
+      "./.pi/skills/mapping-urls",
+      "./.pi/skills/scraping-html-to-markdown",
+      "./.pi/skills/serving-the-api"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xberg-io/crawlberg"
+  },
+  "type": "module",
+  "version": "1.10.3"
 }
