@@ -4,6 +4,7 @@
 # To verify freshness: alef verify
 
 [package]
+authors = ["Na'aman Hirschfeld <naaman@xberg.io>", "Tobias Perlstein <tobias@xberg.io>"]
 name = "crawlberg-wasm"
 version = "1.10.3"
 edition = "2024"

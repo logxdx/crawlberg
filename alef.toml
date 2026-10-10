@@ -2335,7 +2335,7 @@ version = "1.10.3"
 description = "High-performance web crawling engine"
 license = "MIT"
 repository = "https://github.com/xberg-io/crawlberg"
-authors = ["Xberg Team"]
+authors = ["Na'aman Hirschfeld <naaman@xberg.io>", "Tobias Perlstein <tobias@xberg.io>"]
 keywords = ["crawl", "scrape", "web", "spider"]
 
 [crates.scaffold.cargo]

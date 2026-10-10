@@ -10,7 +10,8 @@
 Gem::Specification.new do |spec|
   spec.name = "crawlberg"
   spec.version = "1.10.3"
-  spec.authors       = ["Xberg Team"]
+  spec.authors       = ["Na'aman Hirschfeld", "Tobias Perlstein"]
+  spec.email         = ["naaman@xberg.io", "tobias@xberg.io"]
   spec.summary       = "High-performance web crawling engine"
   spec.description   = "High-performance web crawling engine"
   spec.homepage      = "https://github.com/xberg-io/crawlberg"

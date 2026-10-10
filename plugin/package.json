@@ -1,4 +1,14 @@
 {
+  "author": {
+    "name": "Na'aman Hirschfeld",
+    "email": "naaman@xberg.io"
+  },
+  "contributors": [
+    {
+      "name": "Tobias Perlstein",
+      "email": "tobias@xberg.io"
+    }
+  ],
   "name": "@xberg-io/opencode-crawlberg",
   "version": "1.10.3",
   "description": "Web crawling and scraping with HTML→Markdown and headless-Chrome fallback.",
