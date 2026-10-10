@@ -5118,6 +5118,22 @@ pub fn scrape<'py>(py: Python<'py>, engine: CrawlEngineHandle, url: String) -> P
     })
 }
 
+/// Close the browser `create_engine` launched for this engine, and wait for Chrome to exit.
+///
+/// Hand-written: alef skips `shutdown_engine` because it consumes the handle, which a Python
+/// object cannot give up. The core handle is `Clone` and a shutdown through any clone closes the
+/// pool they share, so a clone is shut down instead. Dropping the last reference to an engine
+/// now closes its browser as well; this is the deterministic form of that.
+#[allow(clippy::missing_errors_doc)]
+#[pyfunction]
+#[pyo3(signature = (engine))]
+pub fn shutdown_engine<'py>(py: Python<'py>, engine: CrawlEngineHandle) -> PyResult<Bound<'py, PyAny>> {
+    pyo3_async_runtimes::tokio::future_into_py(py, async move {
+        crawlberg::shutdown_engine((*engine.inner).clone()).await;
+        Ok(())
+    })
+}
+
 // Error types
 pyo3::create_exception!(_crawlberg, CrawlError, pyo3::exceptions::PyException);
 pyo3::create_exception!(_crawlberg, NotFoundError, CrawlError);
@@ -6759,6 +6775,7 @@ pub fn _crawlberg(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(interact, m)?)?;
     m.add_function(wrap_pyfunction!(map_urls, m)?)?;
     m.add_function(wrap_pyfunction!(scrape, m)?)?;
+    m.add_function(wrap_pyfunction!(shutdown_engine, m)?)?;
     m.add("NotFoundError", m.py().get_type::<NotFoundError>())?;
     m.add("UnauthorizedError", m.py().get_type::<UnauthorizedError>())?;
     m.add("ForbiddenError", m.py().get_type::<ForbiddenError>())?;

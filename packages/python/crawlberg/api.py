@@ -402,6 +402,15 @@ async def scrape(engine: CrawlEngineHandle, url: str) -> ScrapeResult:
     return _from_native_scrape_result(await _rust.scrape(engine=engine, url=url))
 
 
+async def shutdown_engine(engine: CrawlEngineHandle) -> None:
+    """Close the browser this engine launched and wait until Chrome has exited.
+
+    Shuts down every handle sharing the engine's browser. Dropping the last reference to an
+    engine closes its browser too, but only when the garbage collector gets to it.
+    """
+    await _rust.shutdown_engine(engine=engine)
+
+
 async def crawl_stream(
     engine: CrawlEngineHandle, url: str | CrawlStreamRequest | _rust.CrawlStreamRequest
 ) -> AsyncIterator[CrawlEvent]:

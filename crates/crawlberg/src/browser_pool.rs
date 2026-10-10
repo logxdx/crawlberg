@@ -1544,6 +1544,13 @@ pub struct BrowserPool {
     /// Lock-free health signal updated whenever browser state changes.
     healthy: Arc<AtomicBool>,
     next_generation: AtomicU64,
+    /// The Tokio runtime the most recent browser was launched on.
+    ///
+    /// ~keep A binding handle can be dropped on a host GC or finalizer thread, where no runtime
+    /// ~keep is current and `tokio::spawn` panics. Shutting the pool down from such a drop needs a
+    /// ~keep runtime to run on, and the one that launched the browser is the one driving its CDP
+    /// ~keep handler. A pool that never launched has no browser to close and leaves this `None`.
+    launch_runtime: std::sync::Mutex<Option<tokio::runtime::Handle>>,
     /// While `true`, the task of each handler this pool starts stays open after its handler
     /// has ended, so a test can ask for a page in that state.
     #[cfg(test)]
@@ -1570,9 +1577,23 @@ impl BrowserPool {
             shutdown: Arc::new(AtomicBool::new(false)),
             healthy: Arc::new(AtomicBool::new(false)),
             next_generation: AtomicU64::new(1),
+            launch_runtime: std::sync::Mutex::new(None),
             #[cfg(test)]
             hold_handler_end: tokio::sync::watch::Sender::new(false),
         })
+    }
+
+    /// The runtime the most recent browser was launched on, if any browser was launched.
+    pub(crate) fn launch_runtime(&self) -> Option<tokio::runtime::Handle> {
+        match self.launch_runtime.lock() {
+            Ok(guard) => guard.clone(),
+            Err(poisoned) => poisoned.into_inner().clone(),
+        }
+    }
+
+    /// Whether [`shutdown`](Self::shutdown) has been called.
+    pub(crate) fn is_shut_down(&self) -> bool {
+        self.shutdown.load(Ordering::Acquire)
     }
 
     #[cfg_attr(not(feature = "browser"), allow(dead_code))]
@@ -1798,6 +1819,12 @@ impl BrowserPool {
 
     /// Launch (or connect to) a Chrome process according to the pool config.
     async fn launch_browser(&self) -> Result<BrowserState, CrawlError> {
+        if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+            match self.launch_runtime.lock() {
+                Ok(mut guard) => *guard = Some(runtime),
+                Err(poisoned) => *poisoned.into_inner() = Some(runtime),
+            }
+        }
         let (browser, handler, data_dir) = if let Some(ref endpoint) = self.config.browser_endpoint {
             let (browser, handler) = tokio::time::timeout(self.config.launch_timeout, connect_endpoint(endpoint))
                 .await

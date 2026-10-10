@@ -36,6 +36,7 @@ from .api import (
     interact,
     map_urls,
     scrape,
+    shutdown_engine,
 )
 from .exceptions import (
     BadGatewayError,
@@ -197,6 +198,7 @@ __all__ = [
     "interact",
     "map_urls",
     "scrape",
+    "shutdown_engine",
 ]
 
-__version__ = "1.10.3"
+__version__ = "1.10.3+prowler.1"
