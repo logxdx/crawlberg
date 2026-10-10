@@ -43,8 +43,13 @@ The implementation depends on `deno_core` / V8 through the vendored JS runtime.
 Run the repository license audit before release and keep this file updated with
 any additional attribution obligations.
 
-Do not enable the vendored `stealth` feature until `wreq`, `boring2`, and
-`boring-sys2` obligations are explicitly audited.
+The `stealth` feature (enabled in this fork through `browser-native-stealth`)
+now pulls `wreq` 6.0.0-rc.31 and `wreq-util` 3.0.0-rc.14 (Apache-2.0), `btls`
+0.5.6 (Apache-2.0) and `btls-sys` 0.5.6 (MIT), which builds the BoringSSL source
+it bundles under `deps/boringssl` (Apache-2.0, per its `LICENSE`). The
+`boring2`/`boring-sys2` crates this note originally named are no longer in the
+graph. All are permissive: a binary distribution must carry their licence texts
+and any NOTICE files.
 
 ### Apache License, Version 2.0
 
