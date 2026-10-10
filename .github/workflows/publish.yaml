@@ -1112,6 +1112,7 @@ jobs:
         with:
           crate-name: crawlberg-ffi
           target: ${{ matrix.target }}
+          require-static: "true"
 
       - name: Stage C FFI distribution
         # Inline: bundle library + header + LICENSE into a single tarball
@@ -1128,7 +1129,9 @@ jobs:
           STAGE="crawlberg-ffi-v${VERSION}-${TARGET}"
           mkdir -p "$STAGE/lib" "$STAGE/include"
           find "target/${TARGET}/release" -maxdepth 1 -type f \
-            \( -name 'libcrawlberg_ffi.*' -o -name 'crawlberg_ffi.dll' \) \
+            \( -name 'libcrawlberg_ffi.so' -o -name 'libcrawlberg_ffi.dylib' \
+            -o -name 'libcrawlberg_ffi.a' -o -name 'crawlberg_ffi.dll' \
+            -o -name 'crawlberg_ffi.lib' -o -name 'native-static-libs.txt' \) \
             -exec cp {} "$STAGE/lib/" \;
           cp crates/crawlberg-ffi/include/crawlberg.h "$STAGE/include/"
           cp LICENSE "$STAGE/" 2>/dev/null || true
