@@ -248,7 +248,7 @@ pub(crate) use detection::{is_binary_content_type, is_binary_url, is_html_conten
 pub(crate) use extract::HtmlExtraction;
 pub(crate) use extract::extract_page_data;
 pub(crate) use icon_labels::omit_linked_icon_labels;
-pub(crate) use links::{append_refresh_header_link, effective_base_url, extract_links};
+pub(crate) use links::{append_refresh_header_link, classify_link, effective_base_url, extract_links};
 pub(crate) use metadata::refresh_target;
 pub(crate) use metadata::robots_meta_contents;
 #[cfg(not(target_arch = "wasm32"))]
