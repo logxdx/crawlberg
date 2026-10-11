@@ -103,7 +103,9 @@ pub(crate) fn hiding_classes_from_styles<'s>(css_texts: impl IntoIterator<Item =
                 let selector = selector.trim();
                 if let Some(name) = selector.strip_prefix('.')
                     && !name.is_empty()
-                    && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+                    && name
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
                 {
                     hidden.insert(name.to_owned());
                 }

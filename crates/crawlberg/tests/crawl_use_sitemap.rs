@@ -46,7 +46,13 @@ async fn site(robots_names_sitemap: bool) -> MockServer {
     } else {
         String::new()
     };
-    text(&mock, "/robots.txt", format!("User-agent: *\nDisallow: /blocked\n{sitemap_line}"), "text/plain").await;
+    text(
+        &mock,
+        "/robots.txt",
+        format!("User-agent: *\nDisallow: /blocked\n{sitemap_line}"),
+        "text/plain",
+    )
+    .await;
     let urls = ["/orphan", "/blocked", "/a"]
         .iter()
         .map(|p| format!("<url><loc>{uri}{p}</loc></url>"))
@@ -98,8 +104,15 @@ async fn sitemap_urls_join_the_crawl_at_depth_one_and_their_links_are_followed()
     assert!(as_paths.contains(&"/orphan"), "sitemap URL crawled: {got:?}");
     assert!(as_paths.contains(&"/deep"), "a sitemap page's link followed: {got:?}");
     assert!(!as_paths.contains(&"/blocked"), "robots.txt still applies: {got:?}");
-    assert!(got.iter().all(|(p, _)| !p.contains("elsewhere")), "scope still applies: {got:?}");
-    assert_eq!(as_paths.iter().filter(|p| **p == "/a").count(), 1, "deduplicated: {got:?}");
+    assert!(
+        got.iter().all(|(p, _)| !p.contains("elsewhere")),
+        "scope still applies: {got:?}"
+    );
+    assert_eq!(
+        as_paths.iter().filter(|p| **p == "/a").count(),
+        1,
+        "deduplicated: {got:?}"
+    );
     assert!(got.contains(&("/orphan".to_owned(), 1)), "queued at depth 1: {got:?}");
 }
 

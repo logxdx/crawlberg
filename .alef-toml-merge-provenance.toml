@@ -285,16 +285,6 @@ values = ["MD012", "MD013", "MD024", "MD033", "MD036", "MD041", "MD046", "MD051"
 
 [[entries]]
 relative_path = "poly.toml"
-key_path = "lint.php.mago.ignore"
-values = ["strict-assertions", "use-specific-assertions", "no-redundant-variable", "sensitive-parameter"]
-
-[[entries]]
-relative_path = "poly.toml"
-key_path = "lint.php.mago.select"
-values = ["correctness", "security"]
-
-[[entries]]
-relative_path = "poly.toml"
 key_path = "lint.python.ruff.ignore"
 values = [
   "ANN401",

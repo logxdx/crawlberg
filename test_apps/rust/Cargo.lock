@@ -687,7 +687,7 @@ dependencies = [
 
 [[package]]
 name = "crawlberg-e2e-rust"
-version = "1.10.3"
+version = "1.10.3+prowler.1"
 dependencies = [
  "axum",
  "brotli 9.0.0",

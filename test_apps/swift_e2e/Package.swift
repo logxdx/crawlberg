@@ -8,7 +8,7 @@ let package = Package(
     .iOS(.v16),
   ],
   dependencies: [
-    .package(url: "https://github.com/xberg-io/crawlberg", branch: "release/swift/1.10.3"),
+    .package(url: "https://github.com/xberg-io/crawlberg", branch: "release/swift/1.10.3+prowler.1"),
   ],
   targets: [
     .testTarget(
