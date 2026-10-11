@@ -923,12 +923,19 @@ features = ["interact", "browser-chromiumoxide", "browser-native-stealth"]
 # ~keep is hand-written in these files and wired in here, which `alef generate` preserves.
 [crates.python.extra_init_imports]
 "._shutdown" = ["shutdown_engine"]
+"._logging" = ["init_logging"]
+
+# ~keep prowler: the Python module installed no tracing subscriber, so the core's logs (the CDP
+# ~keep trace included) were unreachable from Python. `logging.rs` installs one, opt-in through
+# ~keep CRAWLBERG_LOG.
+[crates.python.extra_dependencies]
+tracing-subscriber = { workspace = true }
 
 [crates.custom_modules]
-python = ["shutdown"]
+python = ["shutdown", "logging"]
 
 [crates.custom_registrations.python]
-functions = ["shutdown::shutdown_engine"]
+functions = ["shutdown::shutdown_engine", "logging::init_logging"]
 
 [crates.python.stubs]
 output = "packages/python/crawlberg/"
