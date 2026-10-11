@@ -131,7 +131,7 @@ See [Python README](https://github.com/xberg-io/crawlberg/tree/main/packages/pyt
 <summary><strong>Node.js</strong></summary>
 
 ```sh
-npm install @xberg-io/crawlberg
+pnpm add @xberg-io/crawlberg
 ```
 
 See [Node.js README](https://github.com/xberg-io/crawlberg/tree/main/crates/crawlberg-node) for full documentation.
@@ -243,7 +243,7 @@ See [Zig README](https://github.com/xberg-io/crawlberg/tree/main/packages/zig) f
 <summary><strong>WebAssembly</strong></summary>
 
 ```sh
-npm install @xberg-io/crawlberg-wasm
+pnpm add @xberg-io/crawlberg-wasm
 ```
 
 See [WebAssembly README](https://github.com/xberg-io/crawlberg/tree/main/crates/crawlberg-wasm) for full documentation.
