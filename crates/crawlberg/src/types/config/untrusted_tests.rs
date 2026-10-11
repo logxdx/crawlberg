@@ -292,6 +292,8 @@ fn adding_a_config_field_requires_an_explicit_trust_classification() {
         remove_tags: _,
         content: _,
         map_limit: _,
+        // Caller-owned, like map_limit: sitemap reads go through the crawl's own client and SSRF policy.
+        use_sitemap: _,
         map_search: _,
         download_assets: _,
         asset_types: _,
