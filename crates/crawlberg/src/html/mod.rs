@@ -8,6 +8,7 @@ mod feeds;
 mod icon_labels;
 mod images;
 mod json_ld;
+mod link_traps;
 mod links;
 mod metadata;
 mod raw_text;

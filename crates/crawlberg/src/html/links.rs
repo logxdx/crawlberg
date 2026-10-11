@@ -6,6 +6,7 @@ use url::{Position, Url};
 
 use crate::types::{LinkInfo, LinkType};
 
+use super::link_traps::hidden_nodes;
 use super::raw_text::MaskedHtml;
 use super::real_tags::{RealTags, write_start_tag};
 use super::selectors::SEL_A_HREF;
@@ -72,9 +73,15 @@ pub(crate) fn extract_links(page: &MaskedHtml<'_>, document_url: &Url) -> Vec<Li
     };
     let parser = dom.parser();
     let mut links = Vec::new();
+    // ~keep A link no person can see is a crawler trap: dropped here, so the crawl never
+    // ~keep follows it and the map never lists it. See `link_traps`.
+    let hidden = hidden_nodes(&dom);
 
     if let Some(iter) = dom.query_selector(SEL_A_HREF) {
         for handle in iter {
+            if hidden.get(handle.get_inner() as usize).copied().unwrap_or(false) {
+                continue;
+            }
             let Some(tag) = handle.get(parser).and_then(|n| n.as_tag()) else {
                 continue;
             };
