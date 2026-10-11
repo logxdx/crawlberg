@@ -219,6 +219,15 @@ pub struct CrawlConfig {
     pub content: ContentConfig,
     /// Maximum number of URLs to return from a map operation.
     pub map_limit: Option<usize>,
+    /// Whether a crawl also starts from the site's sitemaps.
+    ///
+    /// The URLs the `Sitemap:` directives in robots.txt list (when [`Self::respect_robots_txt`]
+    /// is on), or else `/sitemap.xml` lists, are queued at depth 1 beside the seed page's own
+    /// links, under the same scope, robots and [`Self::max_pages`] rules, and their links are
+    /// followed like any other page's. At most `max_pages` sitemap URLs are read. Off by default;
+    /// `map` reads sitemaps whatever this says.
+    #[serde(default)]
+    pub use_sitemap: bool,
     /// Search filter for map results (case-insensitive substring match on URLs).
     pub map_search: Option<String>,
     /// Whether to download assets (CSS, JS, images, etc.) from the page.
@@ -410,6 +419,7 @@ impl Default for CrawlConfig {
             remove_tags: Vec::new(),
             content: ContentConfig::default(),
             map_limit: None,
+            use_sitemap: false,
             map_search: None,
             download_assets: false,
             asset_types: Vec::new(),

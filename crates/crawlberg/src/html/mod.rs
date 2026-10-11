@@ -7,6 +7,7 @@ mod extract;
 mod feeds;
 mod images;
 mod json_ld;
+mod link_traps;
 mod links;
 mod metadata;
 mod raw_text;
@@ -235,7 +236,7 @@ pub(crate) use detection::is_pdf_url;
 pub(crate) use detection::{is_binary_content_type, is_binary_url, is_html_content, is_pdf_content};
 pub(crate) use extract::HtmlExtraction;
 pub(crate) use extract::extract_page_data;
-pub(crate) use links::{effective_base_url, extract_links};
+pub(crate) use links::{classify_link, effective_base_url, extract_links};
 pub(crate) use metadata::robots_meta_contents;
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) use metadata::{detect_meta_refresh, refresh_target};

@@ -916,6 +916,20 @@ features = ["interact", "browser-chromiumoxide"]
 
 [crates.python]
 module_name = "_crawlberg"
+# ~keep prowler: the native browser's stealth transport (V8 + wreq/BoringSSL) is built into the
+# ~keep Python wheel only.
+features = ["interact", "browser-chromiumoxide", "browser-native-stealth"]
+
+# ~keep prowler: `shutdown_engine` is alef(skip)ped (it consumes the handle), so the Python binding
+# ~keep is hand-written in these files and wired in here, which `alef generate` preserves.
+[crates.python.extra_init_imports]
+"._shutdown" = ["shutdown_engine"]
+
+[crates.custom_modules]
+python = ["shutdown"]
+
+[crates.custom_registrations.python]
+functions = ["shutdown::shutdown_engine"]
 
 [crates.python.stubs]
 output = "packages/python/crawlberg/"
@@ -2273,64 +2287,64 @@ categories = ["scrape", "markdown", "metadata"]
 
 [crates.e2e.registry.packages.python]
 name = "crawlberg"
-version = ">=1.10.3"
+version = ">=1.10.3+prowler.1"
 
 [crates.e2e.registry.packages.node]
 name = "@xberg-io/crawlberg"
-version = "^1.10.3"
+version = "^1.10.3+prowler.1"
 
 [crates.e2e.registry.packages.dart]
 name = "crawlberg"
-version = "^1.10.3"
+version = "^1.10.3+prowler.1"
 
 [crates.e2e.registry.packages.rust]
 name = "crawlberg"
-version = "1.10.3"
+version = "1.10.3+prowler.1"
 
 [crates.e2e.registry.packages.go]
 module = "github.com/xberg-io/crawlberg/packages/go"
-version = "v1.10.3"
+version = "v1.10.3+prowler.1"
 
 [crates.e2e.registry.packages.java]
 name = "io.xberg.crawlberg:crawlberg"
-version = "1.10.3"
+version = "1.10.3+prowler.1"
 
 [crates.e2e.registry.packages.csharp]
 name = "XbergIo.Crawlberg"
-version = "1.10.3"
+version = "1.10.3+prowler.1"
 
 [crates.e2e.registry.packages.php]
 name = "xberg-io/crawlberg"
-version = ">=1.10.3"
+version = ">=1.10.3+prowler.1"
 
 [crates.e2e.registry.packages.ruby]
 name = "crawlberg"
-version = ">= 1.10.3"
+version = ">= 1.10.3+prowler.1"
 
 [crates.e2e.registry.packages.elixir]
 name = "crawlberg"
-version = "~> 1.10.3"
+version = "~> 1.10.3+prowler.1"
 
 [crates.e2e.registry.packages.wasm]
 name = "@xberg-io/crawlberg-wasm"
-version = "^1.10.3"
+version = "^1.10.3+prowler.1"
 
 [crates.e2e.registry.packages.brew]
 name = "crawlberg"
-version = "1.10.3"
+version = "1.10.3+prowler.1"
 
 [crates.e2e.registry.packages.c]
 name = "crawlberg-ffi"
-version = "1.10.3"
+version = "1.10.3+prowler.1"
 
 [crates.e2e.registry.packages.zig]
 name = "crawlberg"
-version = "1.10.3"
-hash = "crawlberg-1.10.3-STALE_PLACEHOLDER_TO_BE_RESOLVED_BY_ZIG_FETCH"
+version = "1.10.3+prowler.1"
+hash = "crawlberg-1.10.3+prowler.1-STALE_PLACEHOLDER_TO_BE_RESOLVED_BY_ZIG_FETCH"
 
 [crates.e2e.registry.packages.kotlin_android]
 name = "io.xberg.crawlberg.android:crawlberg-android"
-version = "1.10.3"
+version = "1.10.3+prowler.1"
 
 [crates.scaffold]
 description = "High-performance web crawling engine"

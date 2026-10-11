@@ -564,7 +564,7 @@ dependencies = [
 
 [[package]]
 name = "crawlberg"
-version = "1.10.3"
+version = "1.10.3+prowler.1"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -653,7 +653,7 @@ dependencies = [
 
 [[package]]
 name = "crawlberg-e2e-rust"
-version = "1.10.3"
+version = "1.10.3+prowler.1"
 dependencies = [
  "axum",
  "brotli",
@@ -668,7 +668,7 @@ dependencies = [
 
 [[package]]
 name = "crawlberg-robots"
-version = "1.10.3"
+version = "1.10.3+prowler.1"
 
 [[package]]
 name = "crc32fast"
