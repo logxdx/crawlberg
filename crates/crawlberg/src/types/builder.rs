@@ -235,6 +235,12 @@ impl CrawlConfigBuilder {
         self
     }
 
+    /// Set whether a crawl also starts from the site's sitemaps. See [`CrawlConfig::use_sitemap`].
+    pub fn use_sitemap(mut self, value: bool) -> Self {
+        self.inner.use_sitemap = value;
+        self
+    }
+
     /// Set the search filter for map results.
     pub fn map_search(mut self, value: impl Into<String>) -> Self {
         self.inner.map_search = Some(value.into());

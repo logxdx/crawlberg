@@ -82,6 +82,43 @@ pub async fn map(engine: &CrawlEngine, seed: &crate::engine::SeedUrl) -> Result<
     Ok(filter_map_result(urls, &filter, config.map_limit))
 }
 
+/// The URLs a site's sitemaps list, as links for a crawl to enqueue when
+/// [`CrawlConfig::use_sitemap`] is on.
+///
+/// Read as [`map`] reads them - robots.txt `Sitemap:` directives when robots.txt is respected,
+/// else `/sitemap.xml` - but never the direct fetch: the crawl has already fetched the seed.
+/// At most `max_pages` URLs, so a large sitemap-index tree is not walked past what the crawl
+/// could fetch. Empty when the site has no readable sitemap.
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) async fn sitemap_links_for_crawl(seed: &Url, config: &CrawlConfig) -> Vec<crate::types::LinkInfo> {
+    // ~keep A crawl with no page cap still bounds the sitemap walk.
+    const UNCAPPED_CRAWL_SITEMAP_LIMIT: usize = 10_000;
+    let mut walk_config = config.clone();
+    walk_config.map_limit = Some(config.max_pages.unwrap_or(UNCAPPED_CRAWL_SITEMAP_LIMIT));
+    let (Ok(client), Ok(filter)) = (build_client(&walk_config), MapFilter::from_config(&walk_config)) else {
+        return Vec::new();
+    };
+    let context = SitemapWalkContext::new(&walk_config, &client, &filter);
+    let mut urls = Vec::new();
+    if walk_config.respect_robots_txt {
+        urls = sitemap_urls_from_robots(seed.as_str(), &walk_config, &client, &context).await;
+    }
+    if urls.is_empty() {
+        urls = sitemap_urls_from_well_known(seed, &walk_config, &client, &context).await;
+    }
+    filter_map_result(urls, &filter, walk_config.map_limit)
+        .urls
+        .into_iter()
+        .map(|entry| crate::types::LinkInfo {
+            link_type: crate::html::classify_link(&entry.url, seed),
+            url: entry.url,
+            text: String::new(),
+            rel: None,
+            nofollow: false,
+        })
+        .collect()
+}
+
 /// Collect URLs from every `Sitemap:` directive advertised in the site's robots.txt.
 ///
 /// Returns an empty vector when robots.txt is unreadable or advertises no sitemaps,

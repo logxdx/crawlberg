@@ -916,6 +916,20 @@ features = ["interact", "browser-chromiumoxide"]
 
 [crates.python]
 module_name = "_crawlberg"
+# ~keep prowler: the native browser's stealth transport (V8 + wreq/BoringSSL) is built into the
+# ~keep Python wheel only.
+features = ["interact", "browser-chromiumoxide", "browser-native-stealth"]
+
+# ~keep prowler: `shutdown_engine` is alef(skip)ped (it consumes the handle), so the Python binding
+# ~keep is hand-written in these files and wired in here, which `alef generate` preserves.
+[crates.python.extra_init_imports]
+"._shutdown" = ["shutdown_engine"]
+
+[crates.custom_modules]
+python = ["shutdown"]
+
+[crates.custom_registrations.python]
+functions = ["shutdown::shutdown_engine"]
 
 [crates.python.stubs]
 output = "packages/python/crawlberg/"

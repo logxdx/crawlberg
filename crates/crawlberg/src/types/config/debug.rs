@@ -47,6 +47,7 @@ impl std::fmt::Debug for CrawlConfig {
             remove_tags,
             content,
             map_limit,
+            use_sitemap,
             map_search,
             download_assets,
             asset_types,
@@ -111,6 +112,7 @@ impl std::fmt::Debug for CrawlConfig {
         debug.field("remove_tags", remove_tags);
         debug.field("content", content);
         debug.field("map_limit", map_limit);
+        debug.field("use_sitemap", use_sitemap);
         debug.field("map_search", map_search);
         debug.field("download_assets", download_assets);
         debug.field("asset_types", asset_types);

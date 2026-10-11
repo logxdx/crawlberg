@@ -135,7 +135,18 @@ impl CrawlEngine {
             doc_depth: fetch.entry.doc_depth,
         };
         self.discover_and_enqueue_links(&fetch.extraction.links, &parent, context, state)
-            .await
+            .await?;
+
+        // ~keep The seed page's own links go first; the sitemap's URLs join them at depth 1,
+        // ~keep through the same scope, dedup and robots path, so a URL both list is queued once.
+        if self.config.use_sitemap && fetch.entry.depth == 0 && !in_document_context {
+            let Ok(seed) = Url::parse(page_url) else {
+                return Ok(());
+            };
+            let links = crate::map::sitemap_links_for_crawl(&seed, &self.config).await;
+            self.discover_and_enqueue_links(&links, &parent, context, state).await?;
+        }
+        Ok(())
     }
 
     /// Build the representations derived from a page body: the downloaded-document record,

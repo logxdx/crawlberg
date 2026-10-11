@@ -18,7 +18,7 @@ exclude = [
 resolver = "2"
 
 [workspace.package]
-version = "1.10.3"
+version = "1.10.3+prowler.1"
 edition = "2024"
 authors = ["Na'aman Hirschfeld <naaman@xberg.io>"]
 license = "MIT"
