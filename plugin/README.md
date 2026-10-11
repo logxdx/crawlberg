@@ -42,7 +42,7 @@ To install the CLI yourself (recommended for direct CLI use, and reused by the l
 ```bash
 brew install xberg-io/tap/crawlberg
 # or run it without a persistent install (the CLI proxy package self-installs the binary):
-npx @xberg-io/crawlberg-cli --help
+pnpm dlx @xberg-io/crawlberg-cli --help
 uvx --from crawlberg-cli crawlberg --help
 # or build from source (the mcp/api subcommands are non-default features):
 cargo install crawlberg-cli --features all

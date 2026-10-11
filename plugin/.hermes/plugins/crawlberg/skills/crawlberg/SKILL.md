@@ -44,7 +44,7 @@ The plugin shells out to a `crawlberg` binary on `PATH`. Install one of:
 ```bash
 brew install xberg-io/tap/crawlberg
 # or run without a persistent install (the CLI proxy package self-installs the binary):
-npx @xberg-io/crawlberg-cli --help
+pnpm dlx @xberg-io/crawlberg-cli --help
 uvx --from crawlberg-cli crawlberg --help
 # or build from source:
 cargo install crawlberg-cli --features all
