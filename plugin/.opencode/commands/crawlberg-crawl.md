@@ -1,12 +1,12 @@
 ---
-name: crawlberg-crawl
 description: Crawl a site with bounded scope
+name: crawlberg-crawl
 ---
 
 <!--
 AI-RULEZ :: GENERATED FILE — DO NOT EDIT
-Content-Hash: blake3:4ab9402b2d2093ba0af62ed1e0a11c3175d2245ca1a713b3a047a52da6ec0a0b
-Source-Hash: blake3:5f22533ad8582cd173338b1160deacdebd54b4712b1c4e227d48b0dbf51b2f01
+Content-Hash: blake3:35251d5fa9d0a18c16430ed6c49c4568ed75a0864a513b1b5ceccd62c3e59315
+Source-Hash: blake3:928a01e80ee4ba9c8c48800b377ca670edef1710fafe2d713dcc2d7ec48dfc52
 Schema-Version: v1
 -->
 

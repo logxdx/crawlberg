@@ -214,7 +214,24 @@ See [CLI README](https://github.com/xberg-io/crawlberg/tree/main/crates/crawlber
 
 ### AI Coding Assistants
 
-Install the Crawlberg plugin from [`xberg-io/crawlberg`](https://github.com/xberg-io/crawlberg). It ships the Crawlberg agent skills (site crawling, HTML→Markdown scraping, headless-Chrome fallback) plus the `crawlberg` MCP server, and works with every major coding agent — expand your harness below.
+Install the Crawlberg plugin from [`xberg-io/crawlberg`](https://github.com/xberg-io/crawlberg). It ships the Crawlberg agent skills (site crawling, HTML→Markdown scraping, headless-Chrome fallback) plus the `crawlberg` MCP server, — select your runtime below.
+
+The bundle targets Claude Code, Codex, Cursor, Gemini CLI, Kimi, OpenCode, Factory Droid,
+Hermes, Pi, Agent Plugins and GitHub Copilot CLI. Read [the plugin guide](https://github.com/xberg-io/crawlberg/blob/main/plugin/README.md)
+for runtime resources, CLI prerequisites and configuration. MCP-capable adapters expose the
+product's tools; Hermes uses a local stdio bridge and explicitly selected skills. Pi loads
+skills and prompt templates and requires the product CLI for executable operations.
+
+Install only the public [Agent Skills](https://github.com/xberg-io/crawlberg/tree/main/skills),
+without a plugin or MCP registration, using the [skills CLI](https://github.com/vercel-labs/skills):
+
+```sh
+npx skills add xberg-io/crawlberg --list
+npx skills add xberg-io/crawlberg
+```
+
+Choose the skills and target agents interactively. Installing instructions does not install the
+product CLI or configure provider credentials.
 
 <details open>
 <summary><strong>Claude Code</strong></summary>
@@ -247,9 +264,14 @@ Settings → Plugins → Add from URL → `https://github.com/xberg-io/crawlberg
 <details>
 <summary><strong>Gemini CLI</strong></summary>
 
-```text
-gemini extensions install https://github.com/xberg-io/crawlberg
+From a checkout of this repository:
+
+```sh
+gemini extensions install ./plugin
 ```
+
+The manifest is inside `plugin/`. See the [Gemini extension reference](https://geminicli.com/docs/extensions/reference/)
+for local installation and updates.
 
 </details>
 

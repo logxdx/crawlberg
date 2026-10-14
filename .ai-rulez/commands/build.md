@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Build
-description: Build the project
+description: Build the project and verify compiled artifacts
 x-ai-rulez:
   kind: command
   id: build
@@ -12,7 +12,7 @@ x-ai-rulez:
 
 # Build
 
-Build the project using the standard task runner.
+Build the project and verify compiled artifacts using the standard task runner.
 
 1. Run `task build` for the core build
 2. Run `task build:bindings` or `task build:all` explicitly when bindings are needed

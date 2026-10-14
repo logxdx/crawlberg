@@ -26,7 +26,14 @@ TEST_LOG="/tmp/cargo-test-$$.log"
 
 core_status=0
 echo "=== cargo test -p crawlberg --all-features ==="
-if ! RUST_BACKTRACE=full cargo test -p crawlberg --all-features --no-fail-fast --verbose 2>&1 | tee -a "$TEST_LOG"; then
+core_test_env=(env RUST_BACKTRACE=full)
+# ~keep Constrained ARM runners opt into serial execution because CPU-wide parallelism makes
+# unrelated Chromium lifecycle tests tear down each other's handlers. Other runners stay parallel.
+if [ -n "${CRAWLBERG_TEST_THREADS:-}" ]; then
+  core_test_env+=(RUST_TEST_THREADS="$CRAWLBERG_TEST_THREADS")
+fi
+if ! "${core_test_env[@]}" cargo test \
+  -p crawlberg --all-features --no-fail-fast --verbose 2>&1 | tee -a "$TEST_LOG"; then
   core_status="${PIPESTATUS[0]}"
 fi
 
