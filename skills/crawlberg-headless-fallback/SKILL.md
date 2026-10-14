@@ -6,7 +6,7 @@ name: crawlberg-headless-fallback
 <!--
 AI-RULEZ :: GENERATED FILE — DO NOT EDIT
 Content-Hash: blake3:96b8fc624830e81d41d770e07bed8f15671042d9d84c5a4cee43604f06b23316
-Source-Hash: blake3:88a79d573a5852d22b2ae7b809c25512cd9c827cfe8c113bd2e036a29675ace4
+Source-Hash: blake3:01971a9461580ad773688d10a27e037f21608219ad8be4872d57409e6e10cf8a
 Schema-Version: v1
 -->
 
