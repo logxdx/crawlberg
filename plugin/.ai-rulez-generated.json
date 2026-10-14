@@ -1,6 +1,6 @@
 {
   "schema_version": "v1",
-  "source_hash": "blake3:82c3b9481711f21fa82b5122cc24091cd52b03891919b82d57a8d251b961a27d",
+  "source_hash": "blake3:88a79d573a5852d22b2ae7b809c25512cd9c827cfe8c113bd2e036a29675ace4",
   "outputs": {
     ".claude-plugin/plugin.json": {
       "content_hash": "blake3:119fa81f25fbe5d9cc237ac85e9b9150d8f46040aa7270a9888e390037a4bf07",
@@ -99,7 +99,7 @@
       "mode": "0644"
     },
     ".hermes/package/src/crawlberg_hermes_plugin/hermes.py": {
-      "content_hash": "blake3:647c97ddf2c18527564f2dadcb937beda8f727658db3791fc4677634f6e3853a",
+      "content_hash": "blake3:29265196c0fc2e577138fb7c7b80a2c9876a8e1d867a145392867788c4630083",
       "mode": "0644"
     },
     ".hermes/package/src/crawlberg_hermes_plugin/plugin.yaml": {
@@ -175,7 +175,7 @@
       "mode": "0644"
     },
     ".hermes/plugins/crawlberg/hermes.py": {
-      "content_hash": "blake3:647c97ddf2c18527564f2dadcb937beda8f727658db3791fc4677634f6e3853a",
+      "content_hash": "blake3:29265196c0fc2e577138fb7c7b80a2c9876a8e1d867a145392867788c4630083",
       "mode": "0644"
     },
     ".hermes/plugins/crawlberg/plugin.yaml": {

@@ -6,7 +6,7 @@ name: crawlberg-serving-the-api
 <!--
 AI-RULEZ :: GENERATED FILE — DO NOT EDIT
 Content-Hash: blake3:1985fa0ec5929f7949a6ffe17c9473bfef3221180eabd504f8ca01e3821d8618
-Source-Hash: blake3:82c3b9481711f21fa82b5122cc24091cd52b03891919b82d57a8d251b961a27d
+Source-Hash: blake3:88a79d573a5852d22b2ae7b809c25512cd9c827cfe8c113bd2e036a29675ace4
 Schema-Version: v1
 -->
 
