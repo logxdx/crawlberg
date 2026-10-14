@@ -331,6 +331,14 @@ poly.local.toml
 .ai-rulez/.generated-manifest.json
 .ai-rulez/.generated-manifest.local.json
 .ai-rulez/local/
+.github/agents/
+.github/prompts/build.prompt.md
+.github/prompts/fix.prompt.md
+.github/prompts/iterate.prompt.md
+.github/prompts/lint.prompt.md
+.github/prompts/parallelize.prompt.md
+.github/prompts/review.prompt.md
+.github/prompts/test.prompt.md
 .opencode/agents/
 .opencode/commands/
 .pi/agents/

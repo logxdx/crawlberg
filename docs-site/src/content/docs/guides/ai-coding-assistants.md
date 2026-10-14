@@ -47,9 +47,14 @@ Settings → Plugins → Add from URL → `https://github.com/xberg-io/crawlberg
 <details>
 <summary><strong>Gemini CLI</strong></summary>
 
-```text
-gemini extensions install https://github.com/xberg-io/crawlberg
+From a checkout of this repository:
+
+```sh
+gemini extensions install ./plugin
 ```
+
+The manifest is inside `plugin/`. See the [Gemini extension reference](https://geminicli.com/docs/extensions/reference/)
+for local installation and updates.
 
 </details>
 
@@ -105,3 +110,55 @@ Add the package to `opencode.json`:
 ```
 
 </details>
+
+## Runtime resources and prerequisites
+
+The generated bundle targets Claude Code, Codex, Cursor, Gemini CLI, Kimi, OpenCode,
+Factory Droid, Hermes, Pi, Agent Plugins and GitHub Copilot CLI. Use
+[the plugin installation guide](https://github.com/xberg-io/crawlberg/blob/main/plugin/README.md)
+for the runtime's installation method and configuration.
+
+| Runtime | Integration |
+| --- | --- |
+| Claude, Codex, Cursor, Factory | Native plugin manifests, skills and MCP configuration |
+| Gemini CLI | Extension manifest, command templates and MCP configuration |
+| Kimi | Plugin manifest and session instructions |
+| OpenCode | npm adapter, instructions and MCP configuration |
+| Hermes | Python plugin, explicitly selected skills and a local stdio MCP bridge |
+| Pi | Skills and prompt templates; execute operations through the CLI |
+| Agent Plugins, Copilot | Agent Plugins 1.0 manifest, skills and MCP configuration |
+
+Install the product CLI before using Hermes or Pi. Hermes starts the installed CLI directly;
+its wheel does not include the auto-installing launcher used by other MCP clients.
+Select `list_tools` through the product's Hermes bridge to inspect the supported tools and
+request schemas. Select skills explicitly when needed; they are not appended automatically
+to every conversation.
+
+From a checkout, install the generated Hermes package into Hermes' Python environment:
+
+```sh
+pip install ./plugin/.hermes/package
+```
+
+Enable the plugin in Hermes configuration. Loading project plugins also requires
+`HERMES_ENABLE_PROJECT_PLUGINS=true`. After a release publishes the updated package, the
+registry install is `pip install crawlberg-hermes-plugin`.
+
+Pi resources can be installed from the checkout with `pi install ./plugin`.
+After a plugin release includes them, install `npm:@xberg-io/opencode-crawlberg` through Pi.
+Pi does not register an MCP server, hooks or executable extensions from this package.
+
+## Standalone public skills
+
+The [public skills directory](https://github.com/xberg-io/crawlberg/tree/main/skills) contains
+instructions you can install independently of the runtime plugin. Use the
+[skills CLI](https://github.com/vercel-labs/skills) to list and select them:
+
+```sh
+npx skills add xberg-io/crawlberg --list
+npx skills add xberg-io/crawlberg
+```
+
+Choose the target agents interactively. For a local checkout, use `npx skills add ./skills`.
+This installs instructions; it does not install the product CLI, enable MCP, download models
+or set provider credentials.

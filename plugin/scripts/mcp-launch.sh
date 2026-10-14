@@ -12,7 +12,7 @@ die() {
 
 LAUNCHER="${CRAWLBERG_LAUNCHER:-auto}"
 case "$LAUNCHER" in
-auto | pnpm dlx | uvx | brew | download) ;;
+auto | npx | uvx | brew | download) ;;
 *) die "invalid CRAWLBERG_LAUNCHER='$LAUNCHER' (expected auto|npx|uvx|brew|download)" ;;
 esac
 
@@ -46,16 +46,17 @@ if have "$BINARY_NAME"; then
   fi
 fi
 
-if want pnpm dlx && have npx; then
-  log "probing pnpm dlx $NPM_PKG@latest ..."
+if want npx && have npx; then
+  log "resolving npx $NPM_PKG@latest ..."
   scratch="$(mktemp -d)"
-  if (cd "$scratch" && pnpm dlx "$NPM_PKG@latest" --version >/dev/null 2>&1); then
-    log "launching via pnpm dlx $NPM_PKG@latest"
-    cd "$scratch"
-    exec pnpm dlx "$NPM_PKG@latest" "$@"
+  # Resolve in an empty project, then execute the selected binary in the caller's cwd. ~keep
+  if npm_bin="$(cd "$scratch" && npx -y --package "$NPM_PKG@latest" --call "command -v ${BINARY_NAME%.exe}" 2>/dev/null)" && runs_ok "$npm_bin"; then
+    rm -rf "$scratch"
+    log "launching npm package binary $npm_bin"
+    exec "$npm_bin" "$@"
   fi
   rm -rf "$scratch"
-  log "pnpm dlx $NPM_PKG not available (no CLI bin yet); falling through"
+  log "npx $NPM_PKG not available (no CLI bin yet); falling through"
 fi
 
 if want uvx && have uvx; then
@@ -132,8 +133,7 @@ download_install() {
   # shellcheck disable=SC2064
   trap "rm -rf '$tmp'" RETURN
 
-  # SECURITY: crawlberg's release pipeline publishes no checksums manifest for
-  log "warning: no published checksum for $asset; integrity relies on TLS only."
+  log "warning: this download path does not verify release checksums; integrity relies on TLS only."
   log "downloading $asset from latest release ..."
   if ! fetch "$asset_url" "$tmp/$asset"; then
     log "download: fetch failed (asset missing or network error): $asset_url; falling through"
