@@ -167,8 +167,8 @@ importers:
   .:
     devDependencies:
       '@xberg-io/crawlberg-wasm':
-        specifier: ^1.10.3
-        version: 1.10.3
+        specifier: ^1.11.0
+        version: 1.11.0
       rollup:
         specifier: ^4.64.6
         version: 4.64.6
@@ -458,8 +458,8 @@ packages:
   '@vitest/spy@5.0.4':
     resolution: {integrity: sha512-MZKk/gSkm2q+ICobMxCpH1mA+cCAWm8WV7UhxlqGjq/sJ3AGc1BqFOs5CRVXxH78wQtme9q/NAAgBquj4AcyMw==}
 
-  '@xberg-io/crawlberg-wasm@1.10.3':
-    resolution: {integrity: sha512-DEyp9y34QIUDIVmlO5vekewo9D+G6MmtSeIpYEAA/WlBUfa8IMXhdyA4ZIVq9d8M7Imj56jhYJmrD9HJ+CpoKw==}
+  '@xberg-io/crawlberg-wasm@1.11.0':
+    resolution: {integrity: sha512-O173crTPuTEbjxtPVy/J7OPg8N6LyjYlqm27fJvO+utJNuDuTtw/dx1kl+ua7iLiJFZeMqhvjtJEmAzUkI/Zqw==}
     engines: {node: '>= 22'}
 
   assertion-error@2.0.1:
@@ -871,7 +871,7 @@ snapshots:
 
   '@vitest/spy@5.0.4': {}
 
-  '@xberg-io/crawlberg-wasm@1.10.3': {}
+  '@xberg-io/crawlberg-wasm@1.11.0': {}
 
   assertion-error@2.0.1: {}
 

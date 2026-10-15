@@ -170,8 +170,8 @@ importers:
         specifier: ^26.6.5
         version: 26.6.5
       '@xberg-io/crawlberg':
-        specifier: ^1.10.3
-        version: 1.10.3
+        specifier: ^1.11.0
+        version: 1.11.0
       vitest:
         specifier: ^5.0.4
         version: 5.0.4(@types/node@26.6.5)(vite@8.3.4(@types/node@26.6.5))
@@ -316,46 +316,46 @@ packages:
   '@vitest/spy@5.0.4':
     resolution: {integrity: sha512-MZKk/gSkm2q+ICobMxCpH1mA+cCAWm8WV7UhxlqGjq/sJ3AGc1BqFOs5CRVXxH78wQtme9q/NAAgBquj4AcyMw==}
 
-  '@xberg-io/crawlberg-darwin-arm64@1.10.3':
-    resolution: {integrity: sha512-sllmrJVAFQYmn7URJ7B20j38sssHqkGoK7w8bha27h664wYMWLbMhwrN2/tjHaRgFcpfaltXwDAjwVbLelK6sg==}
+  '@xberg-io/crawlberg-darwin-arm64@1.11.0':
+    resolution: {integrity: sha512-VW/Q/ExrrxKrHKKdeM7Chmka67/8uuBdnCYBunO7+CsEDsg8lu/0y7DjCJvUL0/0/PQw/v+n0eXFE24X3KC6WA==}
     engines: {node: '>= 22'}
     cpu: [arm64]
     os: [darwin]
 
-  '@xberg-io/crawlberg-darwin-x64@1.10.3':
-    resolution: {integrity: sha512-5kZLFSkNaIzNcf0fm9066IRYtUtdzriNwfLfIlqyMkuq3QSIcMMDZuhF4xGq/0Bwc80V9Ti5HFnobXLKe+u+oQ==}
+  '@xberg-io/crawlberg-darwin-x64@1.11.0':
+    resolution: {integrity: sha512-xwfMwg11lcG+u9CTniuej7i9FpSjqxU6DMtILwzl89Z1oQ2V4sX20TC8BK9Iol5DGAVC75yWAKR/cUu0ubguTw==}
     engines: {node: '>= 22'}
     cpu: [x64]
     os: [darwin]
 
-  '@xberg-io/crawlberg-linux-arm64-gnu@1.10.3':
-    resolution: {integrity: sha512-zXyCbTEWMC5Qi+NNYjrAPSRFU4wvLKPOP2SZ8MX3xlLj8C/SdKQGlkQO7IBHMzoZ+a6krS+ijEWYcPlG3Hk34A==}
+  '@xberg-io/crawlberg-linux-arm64-gnu@1.11.0':
+    resolution: {integrity: sha512-hOAvq2Hwcu2A73QI6xmggazm8WmpYX+6yxY+0wDJFs+fIxCYK0QtvJEJ7biH+Yr1plSL6GfEInfz5L3YXaa8mA==}
     engines: {node: '>= 22'}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
 
-  '@xberg-io/crawlberg-linux-x64-gnu@1.10.3':
-    resolution: {integrity: sha512-hJdUhskH/sNdbyHQClK+G6IIHcPEKXlh97P61vgyZFIY00YfRIyPp18qdFN3F9rj61KeBhYCpK6Uh4dz79UZLA==}
+  '@xberg-io/crawlberg-linux-x64-gnu@1.11.0':
+    resolution: {integrity: sha512-/MKfW/T0sRCrPJ22PdfF79RAJJwRjDObegvT5wkhFW61tmJQX197pSqZ+oOF2c5Y07Ed7UQVtb3BZPkErHC8aA==}
     engines: {node: '>= 22'}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
 
-  '@xberg-io/crawlberg-win32-arm64-msvc@1.10.3':
-    resolution: {integrity: sha512-k8kuD1wvpVknLX0QQDFQTyctNY2q5WJ6zlCFLFrus1qD2L8CSnBkFp7SQ2/5maUGBLaqzgitURr/o/GuKtKVLw==}
+  '@xberg-io/crawlberg-win32-arm64-msvc@1.11.0':
+    resolution: {integrity: sha512-PvFbTLgl7tHwsbQPoQuQis5iElHi83zOR599SaM0mnxEFWAG4YtLXlwDe25ArSsZD6etjBpQ1wb43J1AyFAnDQ==}
     engines: {node: '>= 22'}
     cpu: [arm64]
     os: [win32]
 
-  '@xberg-io/crawlberg-win32-x64-msvc@1.10.3':
-    resolution: {integrity: sha512-qht8e/SeNdwVGQtJethxyq/rjh9bvwLkst0dFKj5uuwQOo5E4UKOMgp3jATJklLl/lKTHi4PAOVbHWHrGElQuw==}
+  '@xberg-io/crawlberg-win32-x64-msvc@1.11.0':
+    resolution: {integrity: sha512-egjhD+3+fbGUnq8au6vBFjjO7y2tPRDtxqvNp9rkgIo4c2PdCYSaoLS3lMAxi+A6F1aS1JSY7zxAeyKrlNJNiw==}
     engines: {node: '>= 22'}
     cpu: [x64]
     os: [win32]
 
-  '@xberg-io/crawlberg@1.10.3':
-    resolution: {integrity: sha512-Sa2GuwxU2/wxK0MhbclX6qdsJmUpOB/C/ZTtjJJ9qXLEeZLwsuLaPvcKOmsra4kvjYoPVq5QCeYiOROI9qCRGg==}
+  '@xberg-io/crawlberg@1.11.0':
+    resolution: {integrity: sha512-O3gbbQOFBy8nHaHZ2nA3FDrfLoEG5cfNA2hzGOiiy2n7YuQXWjEfiGNfX0WX5lH7ah2VW2u5CwPwCHM52O/koA==}
     engines: {node: '>= 22'}
 
   assertion-error@2.0.1:
@@ -691,32 +691,32 @@ snapshots:
 
   '@vitest/spy@5.0.4': {}
 
-  '@xberg-io/crawlberg-darwin-arm64@1.10.3':
+  '@xberg-io/crawlberg-darwin-arm64@1.11.0':
     optional: true
 
-  '@xberg-io/crawlberg-darwin-x64@1.10.3':
+  '@xberg-io/crawlberg-darwin-x64@1.11.0':
     optional: true
 
-  '@xberg-io/crawlberg-linux-arm64-gnu@1.10.3':
+  '@xberg-io/crawlberg-linux-arm64-gnu@1.11.0':
     optional: true
 
-  '@xberg-io/crawlberg-linux-x64-gnu@1.10.3':
+  '@xberg-io/crawlberg-linux-x64-gnu@1.11.0':
     optional: true
 
-  '@xberg-io/crawlberg-win32-arm64-msvc@1.10.3':
+  '@xberg-io/crawlberg-win32-arm64-msvc@1.11.0':
     optional: true
 
-  '@xberg-io/crawlberg-win32-x64-msvc@1.10.3':
+  '@xberg-io/crawlberg-win32-x64-msvc@1.11.0':
     optional: true
 
-  '@xberg-io/crawlberg@1.10.3':
+  '@xberg-io/crawlberg@1.11.0':
     optionalDependencies:
-      '@xberg-io/crawlberg-darwin-arm64': 1.10.3
-      '@xberg-io/crawlberg-darwin-x64': 1.10.3
-      '@xberg-io/crawlberg-linux-arm64-gnu': 1.10.3
-      '@xberg-io/crawlberg-linux-x64-gnu': 1.10.3
-      '@xberg-io/crawlberg-win32-arm64-msvc': 1.10.3
-      '@xberg-io/crawlberg-win32-x64-msvc': 1.10.3
+      '@xberg-io/crawlberg-darwin-arm64': 1.11.0
+      '@xberg-io/crawlberg-darwin-x64': 1.11.0
+      '@xberg-io/crawlberg-linux-arm64-gnu': 1.11.0
+      '@xberg-io/crawlberg-linux-x64-gnu': 1.11.0
+      '@xberg-io/crawlberg-win32-arm64-msvc': 1.11.0
+      '@xberg-io/crawlberg-win32-x64-msvc': 1.11.0
 
   assertion-error@2.0.1: {}
 
