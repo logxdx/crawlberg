@@ -227,6 +227,13 @@ All notable changes to crawlberg are documented here.
   and `PageAction` returns the JSON of the value. Before, it returned the name of the variant
   (`"page"`, `"basic"`, `"exact"`, `"click"`).
 
+### Security
+
+- Update Rustls to 0.23.46 across Rust lockfiles to address RUSTSEC-2026-0346,
+  RUSTSEC-2026-0347, RUSTSEC-2026-0348, and RUSTSEC-2026-0349. Update the Rust consumer
+  app to Quinn Proto 0.11.18 to address RUSTSEC-2026-0338, RUSTSEC-2026-0340, and
+  RUSTSEC-2026-0343.
+
 ### Fixed
 
 - A crawl-result cookie has the same `domain` and `path` over HTTP and in the browser, so a
