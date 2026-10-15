@@ -64,6 +64,7 @@ yarn-error.log*
 # -- `alef generate` would write it and git would discard it again, so the loop never closes.
 # index.js stays ignored: napi emits it from the compiled addon, not from the IR.
 crates/crawlberg-node/index.js
+crates/crawlberg-node/index.native.d.ts
 .wrangler/
 .pnpm-store/
 
