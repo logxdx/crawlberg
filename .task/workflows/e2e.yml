@@ -94,6 +94,18 @@ tasks:
       - cmd: |
           eval "$(cat .mock-server.env 2>/dev/null)"
           export MOCK_SERVER_URL MOCK_SERVERS
+          fixture_exports="$(python3 -c '
+          import json, os, re, shlex
+          servers = json.loads(os.environ["MOCK_SERVERS"])
+          if not isinstance(servers, dict):
+              raise ValueError("MOCK_SERVERS must be an object")
+          for fixture_id, url in servers.items():
+              name = "MOCK_SERVER_" + fixture_id.upper()
+              if not fixture_id or re.fullmatch(r"[A-Z_][A-Z0-9_]*", name) is None or not isinstance(url, str):
+                  raise ValueError("MOCK_SERVERS requires valid environment names and string URLs")
+              print("export " + name + "=" + shlex.quote(url))
+          ')" || exit $?
+          eval "$fixture_exports"
           overall=0
           MOCK_SERVER_URL="$MOCK_SERVER_URL" task rust:e2e:test    || overall=$?
           MOCK_SERVER_URL="$MOCK_SERVER_URL" task python:e2e:test  || overall=$?
