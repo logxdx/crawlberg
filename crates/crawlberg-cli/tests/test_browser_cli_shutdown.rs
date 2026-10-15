@@ -395,6 +395,61 @@ struct ExternalChrome {
     endpoint: String,
 }
 
+fn external_profile_parent(
+    _chrome: &std::path::Path,
+    _home: Option<&std::path::Path>,
+    temporary: &std::path::Path,
+) -> std::path::PathBuf {
+    temporary.to_path_buf()
+}
+
+#[test]
+fn should_put_snap_chrome_profile_in_shared_home() {
+    let home = std::path::Path::new("/home/fixture-owner");
+    for executable in [
+        "/snap/bin/chromium",
+        "/snap/bin/chromium.chromium",
+        "/snap/chromium/current/usr/bin/chromium",
+        "/snap/chromium/123/usr/bin/chromium",
+    ] {
+        assert_eq!(
+            external_profile_parent(
+                std::path::Path::new(executable),
+                Some(home),
+                std::path::Path::new("/tmp/fixture"),
+            ),
+            home.join("snap/chromium/common"),
+            "for {executable}"
+        );
+    }
+}
+
+#[test]
+fn should_keep_ordinary_chrome_profile_in_temp() {
+    let temporary = std::path::Path::new("/tmp/fixture");
+    for executable in [
+        "/usr/bin/chromium",
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/snapshots/chromium",
+    ] {
+        assert_eq!(
+            external_profile_parent(std::path::Path::new(executable), None, temporary),
+            temporary,
+            "for {executable}"
+        );
+    }
+}
+
+#[test]
+#[should_panic(expected = "snap Chrome requires HOME for its shared profile")]
+fn should_refuse_snap_chrome_without_home() {
+    external_profile_parent(
+        std::path::Path::new("/snap/bin/chromium"),
+        None,
+        std::path::Path::new("/tmp/fixture"),
+    );
+}
+
 impl ExternalChrome {
     fn launch() -> Self {
         let chrome = std::env::var_os("CRAWLBERG_TEST_CHROME_PATH")
@@ -404,7 +459,9 @@ impl ExternalChrome {
             .duration_since(std::time::UNIX_EPOCH)
             .expect("clock")
             .as_nanos();
-        let profile = std::env::temp_dir().join(format!("crawlberg-cli-borrowed-{}-{nonce}", std::process::id()));
+        let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
+        let parent = external_profile_parent(std::path::Path::new(&chrome), home.as_deref(), &std::env::temp_dir());
+        let profile = parent.join(format!("crawlberg-cli-borrowed-{}-{nonce}", std::process::id()));
         std::fs::create_dir(&profile).expect("external Chrome profile");
         let child = Command::new(chrome)
             .args([
