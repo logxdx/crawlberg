@@ -3607,6 +3607,16 @@ jobs:
           print('Verified preparation and 3/3 plugin distribution jobs succeeded')
           PYTHON
 
+  validate-plugin-dispatch:
+    name: Validate plugin-only dispatch branch
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.plugins-only && github.ref != 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        with:
+          script: core.setFailed('Plugin-only publication must run from the main branch.')
+
   dispatch-plugin-npm:
     name: Publish missing npm plugin version
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.plugins-only && github.ref == 'refs/heads/main' }}
@@ -3619,12 +3629,12 @@ jobs:
         with:
           ref: ${{ github.sha }}
       - name: Install reviewed ai-rulez
-        uses: xberg-io/actions/setup-ai-rulez@98adf87f1ed4c62a57ff56f9010d62faf42d4db6
+        uses: xberg-io/actions/setup-ai-rulez@23602a93e64f32d552325d5304540927f27d8794
         with:
           ai-rulez-version: "5.3.0"
           source-revision: "bdabc8a6e9211de60ca1e4ad76225ac92fcf218f"
       - name: Verify plugin versions and generated resources
-        uses: xberg-io/actions/verify-ai-rulez-plugin@98adf87f1ed4c62a57ff56f9010d62faf42d4db6
+        uses: xberg-io/actions/verify-ai-rulez-plugin@23602a93e64f32d552325d5304540927f27d8794
         with:
           version-sync-script: scripts/sync_plugin_version.py
       - uses: actions/setup-node@v7
@@ -3677,6 +3687,7 @@ jobs:
           npm-tag: ${{ steps.package.outputs.tag }}
           access: public
           provenance: "true"
+          dry-run: ${{ inputs.dry_run }}
 
   dispatch-plugin-hermes:
     name: Publish missing Hermes plugin version
@@ -3691,12 +3702,12 @@ jobs:
         with:
           ref: ${{ github.sha }}
       - name: Install reviewed ai-rulez
-        uses: xberg-io/actions/setup-ai-rulez@98adf87f1ed4c62a57ff56f9010d62faf42d4db6
+        uses: xberg-io/actions/setup-ai-rulez@23602a93e64f32d552325d5304540927f27d8794
         with:
           ai-rulez-version: "5.3.0"
           source-revision: "bdabc8a6e9211de60ca1e4ad76225ac92fcf218f"
       - name: Verify plugin versions and generated resources
-        uses: xberg-io/actions/verify-ai-rulez-plugin@98adf87f1ed4c62a57ff56f9010d62faf42d4db6
+        uses: xberg-io/actions/verify-ai-rulez-plugin@23602a93e64f32d552325d5304540927f27d8794
         with:
           version-sync-script: scripts/sync_plugin_version.py
       - uses: astral-sh/setup-uv@v10.3.0
@@ -3724,3 +3735,4 @@ jobs:
         with:
           packages-dir: dist-hermes
           expected-version: ${{ steps.package.outputs.version }}
+          dry-run: ${{ inputs.dry_run }}
