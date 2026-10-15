@@ -1,0 +1,56 @@
+{
+	"id": "markdown_keep_hidden",
+	"description": "keep_hidden includes hidden elements and template text in HTTP Markdown output",
+	"tags": [
+		"markdown",
+		"content",
+		"regression"
+	],
+	"input": {
+		"mock_responses": [
+			{
+				"status_code": 200,
+				"headers": {
+					"content-type": "text/html; charset=utf-8"
+				},
+				"body_inline": "<html><body><p>Visible sentence.</p><p hidden>Hidden attribute sentence.</p><div style=\"display:none\">Display none sentence.</div><template><p>Template sentence.</p></template></body></html>"
+			}
+		],
+		"config": {
+			"browser": {
+				"mode": "never"
+			},
+			"content": {
+				"extract_metadata": false,
+				"keep_hidden": true
+			}
+		}
+	},
+	"assertions": [
+		{
+			"type": "equals",
+			"field": "status_code",
+			"value": 200
+		},
+		{
+			"type": "contains",
+			"field": "markdown.content",
+			"value": "Visible sentence."
+		},
+		{
+			"type": "contains",
+			"field": "markdown.content",
+			"value": "Hidden attribute sentence."
+		},
+		{
+			"type": "contains",
+			"field": "markdown.content",
+			"value": "Display none sentence."
+		},
+		{
+			"type": "contains",
+			"field": "markdown.content",
+			"value": "Template sentence."
+		}
+	]
+}
