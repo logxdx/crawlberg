@@ -2298,11 +2298,11 @@ async fn serve_child_targets(
 ) -> bool {
     match socket {
         ControllerSocket::WebSocket(socket) => {
-            serve_child_targets_for_browser(socket, &mut commands, shared, CHILD_COMMAND_TIMEOUT, Some(browser)).await
+            serve_child_targets_guarded(socket, &mut commands, shared, CHILD_COMMAND_TIMEOUT, Some(browser)).await
         }
         #[cfg(unix)]
         ControllerSocket::Pipe(socket) => {
-            serve_child_targets_for_browser(socket, &mut commands, shared, CHILD_COMMAND_TIMEOUT, Some(browser)).await
+            serve_child_targets_guarded(socket, &mut commands, shared, CHILD_COMMAND_TIMEOUT, Some(browser)).await
         }
     }
 }
@@ -2312,7 +2312,7 @@ use failure::child_fail;
 
 #[cfg(test)]
 async fn serve_child_targets_with_timeout<S>(
-    socket: S,
+    mut socket: S,
     commands: &mut mpsc::Receiver<ChildCommand>,
     shared: &Arc<Shared>,
     command_timeout: Duration,
@@ -2320,15 +2320,39 @@ async fn serve_child_targets_with_timeout<S>(
 where
     S: ChildSocket,
 {
-    serve_child_targets_for_browser(socket, commands, shared, command_timeout, None).await
+    serve_child_targets_for_browser(&mut socket, commands, shared, command_timeout, None, false).await
 }
 
-async fn serve_child_targets_for_browser<S>(
+async fn serve_child_targets_guarded<S>(
     mut socket: S,
     commands: &mut mpsc::Receiver<ChildCommand>,
     shared: &Arc<Shared>,
     command_timeout: Duration,
     browser: Option<&Browser>,
+) -> bool
+where
+    S: ChildSocket + Send + 'static,
+{
+    let expected = controller_completed(serve_child_targets_for_browser(
+        &mut socket, commands, shared, command_timeout, browser, true,
+    ))
+    .await;
+    if shared.origin == BrowserOrigin::External {
+        // ~keep Detaching resumes debugger-held workers. Keep this transport independently of
+        // ~keep controller shutdown until both context and all-target censuses prove disposal.
+        let shared = Arc::clone(shared);
+        tokio::spawn(failure::quarantine_external_socket(socket, shared));
+    }
+    expected
+}
+
+async fn serve_child_targets_for_browser<S>(
+    socket: &mut S,
+    commands: &mut mpsc::Receiver<ChildCommand>,
+    shared: &Arc<Shared>,
+    command_timeout: Duration,
+    browser: Option<&Browser>,
+    retain_external_socket: bool,
 ) -> bool
 where
     S: ChildSocket,
@@ -2383,7 +2407,7 @@ where
                         return child_fail(shared, "invalid_drain_request");
                     }
                     let Some(id) = child_command_id(&mut next_id) else { return child_fail(shared, "id_exhausted") };
-                    if child_socket_write(&mut socket, child_message(
+                    if child_socket_write(socket, child_message(
                         id, "Target.getTargets", serde_json::json!({ "filter": [{}] }), None,
                     ), command_timeout).await.is_err() { return child_fail(shared, "drain_census_write"); }
                     pending.insert(id, child_pending_in(
@@ -2412,7 +2436,7 @@ where
                         return child_fail(shared, "id_exhausted");
                     };
                     if let Err(error) = child_socket_write(
-                        &mut socket,
+                        socket,
                         child_message(id, "Target.setAutoAttach", child_global_arm_params(), None),
                         command_timeout,
                     )
@@ -2458,7 +2482,10 @@ where
                     }
                 }
                 Some(ChildCommand::Stop) | None => {
-                    return close_child_socket(&mut socket, command_timeout).await;
+                    if retain_external_socket && shared.origin == BrowserOrigin::External {
+                        return true;
+                    }
+                    return close_child_socket(socket, command_timeout).await;
                 }
             },
             message = socket.next() => {
@@ -2472,7 +2499,7 @@ where
                     async_tungstenite::tungstenite::Message::Text(text) => text,
                     async_tungstenite::tungstenite::Message::Ping(payload) => {
                         if child_socket_write(
-                            &mut socket,
+                            socket,
                             async_tungstenite::tungstenite::Message::Pong(payload),
                             command_timeout,
                         ).await.is_err() {
@@ -2514,7 +2541,7 @@ where
                         };
                         if let Some((target, session)) = ended {
                             let Some(census_id) = child_command_id(&mut next_id) else { return child_fail(shared, "id_exhausted") };
-                            if child_socket_write(&mut socket, child_message(census_id, "Target.getTargets",
+                            if child_socket_write(socket, child_message(census_id, "Target.getTargets",
                                 serde_json::json!({}), None), command_timeout).await.is_err() {
                                 return child_fail(shared, "foreign_census_write");
                             }
@@ -2564,7 +2591,7 @@ where
                             // ~keep child session after its recursive interception boundary is armed.
                             if waiting_for_debugger || structural_parent.is_some() {
                                 let Some(id) = child_command_id(&mut next_id) else { return child_fail(shared, "id_exhausted") };
-                                if let Err(write_error) = child_socket_write(&mut socket, child_message(
+                                if let Err(write_error) = child_socket_write(socket, child_message(
                                     id,
                                     "Runtime.runIfWaitingForDebugger",
                                     serde_json::json!({}),
@@ -2593,7 +2620,7 @@ where
                             {
                                 let Some(id) = child_command_id(&mut next_id) else { return child_fail(shared, "id_exhausted") };
                                 if child_socket_write(
-                                    &mut socket,
+                                    socket,
                                     child_message(
                                         id,
                                         "Runtime.runIfWaitingForDebugger",
@@ -2631,7 +2658,7 @@ where
                             {
                                 let Some(id) = child_command_id(&mut next_id) else { return child_fail(shared, "id_exhausted") };
                                 if child_socket_write(
-                                    &mut socket,
+                                    socket,
                                     child_message(
                                         id,
                                         "Runtime.runIfWaitingForDebugger",
@@ -2808,7 +2835,7 @@ where
                                 .is_ok_and(|kind| dialog_is_accepted(&kind));
                             let Some(id) = child_command_id(&mut next_id) else { return child_fail(shared, "id_exhausted") };
                             if child_socket_write(
-                                &mut socket,
+                                socket,
                                 child_message(
                                     id,
                                     "Page.handleJavaScriptDialog",
@@ -2875,7 +2902,7 @@ where
                     }
                     let Some(id) = child_command_id(&mut next_id) else { return child_fail(shared, "id_exhausted") };
                     if child_socket_write(
-                        &mut socket,
+                        socket,
                         child_message(
                             id,
                             "Target.setAutoAttach",
@@ -2928,7 +2955,7 @@ where
                             });
                         }
                         let Some(id) = child_command_id(&mut next_id) else { return child_fail(shared, "id_exhausted") };
-                        if child_socket_write(&mut socket, child_message(
+                        if child_socket_write(socket, child_message(
                                     id,
                                     "Target.closeTarget",
                                     serde_json::json!({ "targetId": target }),
@@ -2956,7 +2983,7 @@ where
                 if permitted && attached.target_info.r#type == "page" && attached.target_info.opener_id.is_some() {
                     let Some(id) = child_command_id(&mut next_id) else { return child_fail(shared, "id_exhausted") };
                     if child_socket_write(
-                        &mut socket,
+                        socket,
                         child_message(id, "Page.enable", serde_json::json!({}), Some(&attached.session_id)),
                         command_timeout,
                     )
@@ -2967,7 +2994,7 @@ where
                     }
                 }
                 let Some(id) = child_command_id(&mut next_id) else { return child_fail(shared, "id_exhausted") };
-                if child_socket_write(&mut socket, child_message(
+                if child_socket_write(socket, child_message(
                     id,
                     "Target.setAutoAttach",
                     child_recursive_arm_params(),
@@ -4802,6 +4829,18 @@ mod tests {
         mpsc::Sender<super::ChildCommand>,
         tokio::task::JoinHandle<bool>,
     ) {
+        test_child_controller_with_quarantine(shared, command_timeout, false).await
+    }
+
+    async fn test_child_controller_with_quarantine(
+        shared: Arc<Shared>,
+        command_timeout: Duration,
+        quarantine: bool,
+    ) -> (
+        TestChildSocket,
+        mpsc::Sender<super::ChildCommand>,
+        tokio::task::JoinHandle<bool>,
+    ) {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
             .expect("bind child controller test socket");
@@ -4825,8 +4864,14 @@ mod tests {
         let (commands, mut receiver) = mpsc::channel(super::CHILD_CONTROLLER_PENDING_LIMIT);
         use tracing::instrument::WithSubscriber as _;
         let controller = tokio::spawn(
-            async move { serve_child_targets_with_timeout(client, &mut receiver, &shared, command_timeout).await }
-                .with_current_subscriber(),
+            async move {
+                if quarantine {
+                    super::serve_child_targets_guarded(client, &mut receiver, &shared, command_timeout, None).await
+                } else {
+                    serve_child_targets_with_timeout(client, &mut receiver, &shared, command_timeout).await
+                }
+            }
+            .with_current_subscriber(),
         );
         let (done, enabled) = oneshot::channel();
         commands
@@ -7294,6 +7339,7 @@ mod tests {
     }
 
     mod failure_phases;
+    mod external_failure;
 
     #[tokio::test]
     async fn a_cancelled_arm_caller_does_not_leave_a_pending_command() {
