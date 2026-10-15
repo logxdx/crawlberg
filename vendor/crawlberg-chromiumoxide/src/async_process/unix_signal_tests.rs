@@ -190,6 +190,7 @@ fn exercise_managed_launch(mode: &str) {
     }
     if disposition.starts_with("custom") {
         assert!(SIGNAL_EVENTS.load(Ordering::Relaxed) > 0, "inherited handler must run");
+        assert_worker_signal_delivery();
         #[cfg(target_os = "linux")]
         assert_eq!(
             STACK_EVENTS.load(Ordering::Relaxed),
@@ -198,6 +199,19 @@ fn exercise_managed_launch(mode: &str) {
         #[cfg(not(target_os = "linux"))]
         assert_owned_altstack_delivery();
     }
+}
+
+#[allow(unsafe_code)]
+fn assert_worker_signal_delivery() {
+    let before = SIGNAL_EVENTS.load(Ordering::Relaxed);
+    let result = std::thread::spawn(|| {
+        // SAFETY: this live worker targets itself while the isolated process owns its installed handler. ~keep
+        unsafe { libc::pthread_kill(libc::pthread_self(), libc::SIGCHLD) }
+    })
+    .join()
+    .expect("signal worker must finish");
+    assert_eq!(result, 0);
+    assert!(SIGNAL_EVENTS.load(Ordering::Relaxed) > before, "worker must run the handler");
 }
 
 #[cfg(not(target_os = "linux"))]
