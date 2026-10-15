@@ -373,22 +373,21 @@ partial**, and the table below is the authoritative statement of it.
 | Rust (crates.io)               | ✅          | ✅ builds from source          |
 | Ruby (RubyGems)                | ✅          | ✅ compiles at install         |
 | Java (Maven Central)           | ✅          | ✅ bundled in the jar          |
-| C# (NuGet)                     | ✅          | ✅ bundled in the package      |
 | Elixir (Hex)                   | ✅          | ✅ precompiled NIF             |
 | **Node (npm)**                 | ✅          | ❌ **not published**           |
 | **Python (PyPI)**              | ✅          | ❌ **not published**           |
 | **Go**                         | ✅          | ❌ **not published**           |
 | **PHP**                        | ✅          | ❌ **not published**           |
+| **C# (NuGet)**                 | ✅          | ❌ **not published**           |
 
-#### Why musl is omitted for Node, Python, Go, and PHP
+#### musl support for Node, Python, Go, PHP, and C#
 
-These four bindings load a native library that must be built specifically for musl. Producing
-and testing that second Linux artifact doubles the release matrix for each of them, and the
-platforms where Alpine is actually used — containers and CI images — are already served by the
-statically linked CLI and the Alpine Docker image. So the omission is a deliberate scope
-decision, not an oversight or a broken build, and it is not scheduled to change. **If you need
-Crawlberg on Alpine, use the CLI or the Docker image, or run your application on a glibc base
-image** such as `node:22-bookworm-slim`, `python:3.13-slim`, or `debian:bookworm-slim`.
+These five bindings do not publish musl native artifacts. The C# NuGet packages publish
+`linux-x64` and `linux-arm64` native runtimes for glibc Linux; the musl RID entries in
+`runtime.json` fall back to those GNU packages rather than providing musl binaries.
+
+**If you need Crawlberg on Alpine, use the CLI or the Docker image, or run your application on
+a glibc base image** such as `node:22-bookworm-slim`, `python:3.13-slim`, or `debian:bookworm-slim`.
 
 Two consequences are worth knowing about, because neither announces itself:
 
