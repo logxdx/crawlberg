@@ -331,6 +331,45 @@ fn should_finish_five_browser_cli_crawls_without_failure_diagnostics() {
     );
 }
 
+fn external_devtools_endpoint(text: &str) -> Option<String> {
+    let mut lines = text.lines();
+    let port = lines.next().expect("DevTools port").parse::<u16>().expect("port number");
+    let path = lines.next().expect("browser endpoint path");
+    Some(format!("ws://127.0.0.1:{port}{path}"))
+}
+
+#[test]
+fn should_retry_an_empty_devtools_port_record() {
+    assert_eq!(external_devtools_endpoint(""), None);
+}
+
+#[test]
+fn should_retry_a_port_only_devtools_record() {
+    assert_eq!(external_devtools_endpoint("43123"), None);
+    assert_eq!(external_devtools_endpoint("43123\n"), None);
+}
+
+#[test]
+fn should_retry_an_invalid_devtools_port_record() {
+    for port in ["not-a-port", "0", "65536"] {
+        assert_eq!(external_devtools_endpoint(&format!("{port}\n/devtools/browser/browser-id")), None);
+    }
+}
+
+#[test]
+fn should_retry_an_incomplete_or_invalid_devtools_endpoint_path() {
+    for path in ["", "/devtools/browser/", "not-a-path", "/devtools/browser/invalid path"] {
+        assert_eq!(external_devtools_endpoint(&format!("43123\n{path}")), None);
+    }
+}
+
+#[test]
+fn should_parse_a_complete_two_line_devtools_port_record() {
+    let expected = Some("ws://127.0.0.1:43123/devtools/browser/browser-id".to_owned());
+    assert_eq!(external_devtools_endpoint("43123\n/devtools/browser/browser-id"), expected);
+    assert_eq!(external_devtools_endpoint("43123\n/devtools/browser/browser-id\n"), expected);
+}
+
 struct ExternalChrome {
     child: std::process::Child,
     profile: std::path::PathBuf,
@@ -379,15 +418,10 @@ impl ExternalChrome {
                 None,
                 "owner Chrome must be alive"
             );
-            if let Ok(text) = std::fs::read_to_string(self.profile.join("DevToolsActivePort")) {
-                let mut lines = text.lines();
-                let port = lines
-                    .next()
-                    .expect("DevTools port")
-                    .parse::<u16>()
-                    .expect("port number");
-                let path = lines.next().expect("browser endpoint path");
-                self.endpoint = format!("ws://127.0.0.1:{port}{path}");
+            if let Ok(text) = std::fs::read_to_string(self.profile.join("DevToolsActivePort"))
+                && let Some(endpoint) = external_devtools_endpoint(&text)
+            {
+                self.endpoint = endpoint;
                 return;
             }
             assert!(Instant::now() < deadline, "external Chrome must publish endpoint");
