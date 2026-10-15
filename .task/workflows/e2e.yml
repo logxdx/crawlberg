@@ -5,11 +5,33 @@ tasks:
     desc: Start the alef-generated mock HTTP server (background)
     cmds:
       - |
-        ./e2e/rust/target/release/mock-server ./fixtures > .mock-server.out &
-        echo $! > .mock-server.pid
-        sleep 1
-        grep MOCK_SERVER_URL .mock-server.out > .mock-server.env
-        cat .mock-server.env
+        bash -eu -c '
+          MOCK_SERVER_NO_STDIN_WATCH=1 ./e2e/rust/target/release/mock-server ./fixtures \
+            </dev/null >.mock-server.out 2>&1 &
+          server_pid=$!
+          cleanup() {
+            kill "$server_pid" 2>/dev/null || true
+            rm -f .mock-server.pid .mock-server.env
+          }
+          trap cleanup EXIT
+          printf "%s\n" "$server_pid" >.mock-server.pid
+          for attempt in $(seq 1 100); do
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat .mock-server.out >&2
+              exit 1
+            fi
+            if grep -q "^MOCK_SERVERS=" .mock-server.out && \
+                grep "^MOCK_SERVER_URL=http://127\.0\.0\.1:" .mock-server.out >.mock-server.env; then
+              trap - EXIT
+              cat .mock-server.env
+              exit 0
+            fi
+            sleep 0.1
+          done
+          cat .mock-server.out >&2
+          echo "mock-server did not become ready within 10 seconds" >&2
+          exit 1
+        '
     preconditions:
       - sh: test -x e2e/rust/target/release/mock-server
         msg: "alef mock-server binary not built. Run: task mock-server:rebuild"
@@ -45,6 +67,7 @@ tasks:
     desc: Run all E2E tests across all supported languages (builds bindings, starts mock server)
     deps: [mock-server:start]
     cmds:
+      - defer: { task: mock-server:stop }
       - task: :rust:build
       - task: :python:build:dev
       - task: :node:build:dev
@@ -80,7 +103,6 @@ tasks:
           fi
           MOCK_SERVER_URL="$MOCK_SERVER_URL" task brew:e2e:test || overall=$?
           exit $overall
-      - defer: { task: mock-server:stop }
 
   test:quick:
     desc: Quick E2E test (Rust only — fastest feedback)
@@ -89,9 +111,9 @@ tasks:
       MOCK_SERVER_URL:
         sh: cat .mock-server.env 2>/dev/null | grep MOCK_SERVER_URL | cut -d= -f2
     cmds:
+      - defer: { task: mock-server:stop }
       - task: :rust:build
       - task: :rust:e2e:test
-      - defer: { task: mock-server:stop }
 
   verify:all:
     desc: Full E2E pipeline - generate, lint, and test all suites
