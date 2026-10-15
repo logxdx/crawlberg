@@ -1,6 +1,11 @@
 {
 	"id": "markdown_hidden_excluded_by_default",
 	"description": "HTTP Markdown excludes hidden elements and template text by default while preserving visible text",
+	"docs": {
+		"topic": "markdown",
+		"stem": "markdown-hidden-excluded-by-default",
+		"title": "Exclude hidden elements and template text by default"
+	},
 	"tags": [
 		"markdown",
 		"content",

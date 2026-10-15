@@ -1,6 +1,11 @@
 {
 	"id": "markdown_keep_hidden",
 	"description": "keep_hidden includes hidden elements and template text in HTTP Markdown output",
+	"docs": {
+		"topic": "markdown",
+		"stem": "markdown-keep-hidden",
+		"title": "Include hidden elements and template text in Markdown"
+	},
 	"tags": [
 		"markdown",
 		"content",
