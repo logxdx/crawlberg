@@ -81,9 +81,15 @@ fn read_stat(path: &std::path::Path) -> io::Result<Option<Vec<u8>>> {
 fn process_state_and_group(stat: &[u8]) -> io::Result<(u8, u32)> {
     let invalid = || io::Error::new(io::ErrorKind::InvalidData, "incomplete process group record");
     let name_end = stat.iter().rposition(|byte| *byte == b')').ok_or_else(invalid)?;
-    let mut fields = stat[name_end + 1..].split(u8::is_ascii_whitespace).filter(|field| !field.is_empty());
-    let state = fields.next().and_then(|value| value.first().copied()).ok_or_else(invalid)?;
-    let group = fields.nth(1)
+    let mut fields = stat[name_end + 1..]
+        .split(u8::is_ascii_whitespace)
+        .filter(|field| !field.is_empty());
+    let state = fields
+        .next()
+        .and_then(|value| value.first().copied())
+        .ok_or_else(invalid)?;
+    let group = fields
+        .nth(1)
         .and_then(|value| std::str::from_utf8(value).ok())
         .and_then(|value| value.parse().ok())
         .ok_or_else(invalid)?;
@@ -102,9 +108,8 @@ pub(super) fn has_live_members(group: u32) -> io::Result<bool> {
     }
     const GROUP_LIST_HEADROOM: usize = 16;
     // ~keep Unlike proc_listpids, proc_listpgrppids returns a PID count, not a byte count.
-    let count = usize::try_from(required)
-        .map_err(|_| io::Error::other("invalid process group size"))?
-        + GROUP_LIST_HEADROOM;
+    let count =
+        usize::try_from(required).map_err(|_| io::Error::other("invalid process group size"))? + GROUP_LIST_HEADROOM;
     let mut members = vec![0 as libc::pid_t; count];
     let bytes = i32::try_from(std::mem::size_of_val(members.as_slice()))
         .map_err(|_| io::Error::other("process group list is too large"))?;
@@ -126,7 +131,8 @@ pub(super) fn has_live_members(group: u32) -> io::Result<bool> {
 fn macos_member_alive(pid: libc::pid_t, group: libc::pid_t) -> io::Result<bool> {
     // SAFETY: zero initializes the writable native process record. ~keep
     let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
-    let size = i32::try_from(std::mem::size_of_val(&info)).map_err(|_| io::Error::other("process record is too large"))?;
+    let size =
+        i32::try_from(std::mem::size_of_val(&info)).map_err(|_| io::Error::other("process record is too large"))?;
     // SAFETY: info is aligned native storage; arg 1 includes zombie records for an explicit status check. ~keep
     let written = unsafe {
         libc::proc_pidinfo(
@@ -161,7 +167,10 @@ mod tests {
 
     #[test]
     fn a_process_name_with_parentheses_and_non_utf8_does_not_hide_its_group() {
-        assert_eq!(process_state_and_group(b"12 (a)\xff) S 5 17 0").expect("process record"), (b'S', 17));
+        assert_eq!(
+            process_state_and_group(b"12 (a)\xff) S 5 17 0").expect("process record"),
+            (b'S', 17)
+        );
         assert!(process_state_and_group(b"12 (incomplete) S 5").is_err());
     }
 }

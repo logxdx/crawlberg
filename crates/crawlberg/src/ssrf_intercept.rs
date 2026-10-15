@@ -8063,7 +8063,10 @@ mod tests {
         let registry = lock(&shared.registry);
 
         assert_eq!(popup_close, Some(TargetId::new("POPUP")), "a handoff popup must close");
-        assert_eq!(root_close, None, "a delayed creation event must keep the parked root open");
+        assert_eq!(
+            root_close, None,
+            "a delayed creation event must keep the parked root open"
+        );
         assert!(
             registry
                 .target_generations

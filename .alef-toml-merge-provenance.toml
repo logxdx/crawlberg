@@ -160,6 +160,7 @@ values = [
   ".agents/plugins/marketplace.json",
   ".ai-rulez-generated.json",
   "skills/**",
+  "crates/crawlberg/src/ssrf_intercept.rs",
 ]
 
 [[entries]]

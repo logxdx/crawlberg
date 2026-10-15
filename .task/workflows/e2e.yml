@@ -131,7 +131,6 @@ tasks:
           exit $overall
           CRAWLBERG_E2E
 
-
   test:quick:
     desc: Quick E2E test (Rust only — fastest feedback)
     deps: [mock-server:start]

@@ -25,8 +25,8 @@ languages = [
 ]
 
 [workspace.ownership]
-# ~keep These reviewed harnesses contain native setup and test configuration beyond Alef seeds.
-# ~keep scripts/sync_consumer_versions.py maintains and checks their release pins.
+# ~keep These reviewed toolchain and harness settings extend Alef's create-once seeds.
+# ~keep scripts/sync_consumer_versions.py maintains and checks the harness release pins.
 user_owned = [
   ".gitignore",
   "e2e/csharp/Crawlberg.E2eTests.csproj",
@@ -41,6 +41,9 @@ user_owned = [
   "e2e/zig/build.zig.zon",
   "packages/go/error_compat.go",
   "packages/go/error_compat_test.go",
+  "packages/kotlin-android/gradle/wrapper/gradle-wrapper.properties",
+  # ~keep Rust 1.99 includes the Mach-O stripping alignment fix needed by macOS native consumers.
+  "rust-toolchain.toml",
   "test_apps/dart/pubspec.yaml",
   "test_apps/elixir/mix.exs",
   "test_apps/go/go.mod",
@@ -317,7 +320,7 @@ license = "MIT"
 # ~keep Bump this on each release: sync-versions copies it verbatim into CITATION.cff and
 # ~keep only rewrites `version`, so it silently stayed at the 1.1.3 date through 1.1.4,
 # ~keep 1.2.0 and 1.2.1, claiming every release shipped in May.
-date-released = "2026-09-05"
+date-released = "2026-10-15"
 
 [[workspace.citation.authors]]
 family-names = "Hirschfeld"
@@ -467,6 +470,10 @@ exclude = [
   #
   # Re-add an entry only if that first command starts reporting files as *checked*.
   "/skills/**",
+]
+file-safety-exclude = [
+  # ~keep This existing SSRF module exceeds the 500 KiB hook limit; lint and format still apply.
+  "crates/crawlberg/src/ssrf_intercept.rs",
 ]
 
 # Opt-in comment-removal sweep. Preserve doc comments (rustdoc is required on
@@ -2294,64 +2301,64 @@ categories = ["scrape", "markdown", "metadata"]
 
 [crates.e2e.registry.packages.python]
 name = "crawlberg"
-version = ">=1.10.3"
+version = ">=1.11.0"
 
 [crates.e2e.registry.packages.node]
 name = "@xberg-io/crawlberg"
-version = "^1.10.3"
+version = "^1.11.0"
 
 [crates.e2e.registry.packages.dart]
 name = "crawlberg"
-version = "^1.10.3"
+version = "^1.11.0"
 
 [crates.e2e.registry.packages.rust]
 name = "crawlberg"
-version = "1.10.3"
+version = "1.11.0"
 
 [crates.e2e.registry.packages.go]
 module = "github.com/xberg-io/crawlberg/packages/go"
-version = "v1.10.3"
+version = "v1.11.0"
 
 [crates.e2e.registry.packages.java]
 name = "io.xberg.crawlberg:crawlberg"
-version = "1.10.3"
+version = "1.11.0"
 
 [crates.e2e.registry.packages.csharp]
 name = "XbergIo.Crawlberg"
-version = "1.10.3"
+version = "1.11.0"
 
 [crates.e2e.registry.packages.php]
 name = "xberg-io/crawlberg"
-version = ">=1.10.3"
+version = ">=1.11.0"
 
 [crates.e2e.registry.packages.ruby]
 name = "crawlberg"
-version = ">= 1.10.3"
+version = ">= 1.11.0"
 
 [crates.e2e.registry.packages.elixir]
 name = "crawlberg"
-version = "~> 1.10.3"
+version = "~> 1.11.0"
 
 [crates.e2e.registry.packages.wasm]
 name = "@xberg-io/crawlberg-wasm"
-version = "^1.10.3"
+version = "^1.11.0"
 
 [crates.e2e.registry.packages.brew]
 name = "crawlberg"
-version = "1.10.3"
+version = "1.11.0"
 
 [crates.e2e.registry.packages.c]
 name = "crawlberg-ffi"
-version = "1.10.3"
+version = "1.11.0"
 
 [crates.e2e.registry.packages.zig]
 name = "crawlberg"
-version = "1.10.3"
-hash = "crawlberg-1.10.3-STALE_PLACEHOLDER_TO_BE_RESOLVED_BY_ZIG_FETCH"
+version = "1.11.0"
+hash = "crawlberg-1.11.0-STALE_PLACEHOLDER_TO_BE_RESOLVED_BY_ZIG_FETCH"
 
 [crates.e2e.registry.packages.kotlin_android]
 name = "io.xberg.crawlberg.android:crawlberg-android"
-version = "1.10.3"
+version = "1.11.0"
 
 [crates.scaffold]
 description = "High-performance web crawling engine"

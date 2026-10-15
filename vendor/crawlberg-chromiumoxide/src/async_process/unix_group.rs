@@ -133,8 +133,7 @@ impl Group {
         match drain::guardian_exited(self.id) {
             Ok(false) => {
                 // ~keep An independently exiting guardian can leave only zombies between the probe and TERM.
-                if signal_group(self.id, libc::SIGTERM).is_err()
-                    && !matches!(drain::guardian_exited(self.id), Ok(true))
+                if signal_group(self.id, libc::SIGTERM).is_err() && !matches!(drain::guardian_exited(self.id), Ok(true))
                 {
                     return false;
                 }
@@ -289,7 +288,10 @@ mod ownership_tests {
     fn the_group_census_sees_a_live_member_and_excludes_its_guardian_and_bystander() {
         let group = Group::start_script("trap 'exit 0' TERM; printf .; while :; do :; done")
             .expect("guardian with no helper processes");
-        let mut bystander = Command::new("/bin/sleep").arg("300").spawn().expect("unrelated process");
+        let mut bystander = Command::new("/bin/sleep")
+            .arg("300")
+            .spawn()
+            .expect("unrelated process");
         let initially_empty = !drain::has_live_members(group.id()).expect("initial group census");
         let mut member = Command::new("/bin/sleep")
             .arg("300")
@@ -305,7 +307,10 @@ mod ownership_tests {
         let _ = bystander.kill();
         let _ = bystander.wait();
 
-        assert!(initially_empty, "the guardian and unrelated process do not count as live group members");
+        assert!(
+            initially_empty,
+            "the guardian and unrelated process do not count as live group members"
+        );
         assert!(member_visible, "the census must actually inspect a live owned member");
         assert!(finally_empty, "a reaped member must leave no live group member");
         assert!(stopped, "the guardian-only group must stop");
@@ -321,8 +326,14 @@ mod ownership_tests {
             assert!(Instant::now() < deadline, "fixture guardian must exit");
             std::thread::sleep(POLL_INTERVAL);
         }
-        assert!(group.stop(DROP_TIMEOUT), "an empty exited group must stop without a signalable member");
-        assert!(group.child.lock().expect("guardian lock").is_none(), "the completed guardian must be reaped");
+        assert!(
+            group.stop(DROP_TIMEOUT),
+            "an empty exited group must stop without a signalable member"
+        );
+        assert!(
+            group.child.lock().expect("guardian lock").is_none(),
+            "the completed guardian must be reaped"
+        );
     }
 
     #[test]
@@ -330,7 +341,9 @@ mod ownership_tests {
         let group = Group::start_script("trap 'exit 0' TERM; printf .; /bin/sleep 300")
             .expect("guardian that exits without killing its group");
         let (mut ready, member_ready) = std::os::unix::net::UnixStream::pair().expect("member readiness socket");
-        ready.set_read_timeout(Some(OWNER_PROBE_TIMEOUT)).expect("readiness timeout");
+        ready
+            .set_read_timeout(Some(OWNER_PROBE_TIMEOUT))
+            .expect("readiness timeout");
         let mut member = Command::new("/bin/sh")
             .args(["-c", "trap '' TERM; printf .; exec /bin/sleep 300"])
             .stdout(std::process::Stdio::from(std::os::fd::OwnedFd::from(member_ready)))
@@ -338,7 +351,10 @@ mod ownership_tests {
             .spawn()
             .expect("member that ignores TERM");
         acknowledge_ready(&mut ready).expect("member must install its TERM handler before stop");
-        let mut bystander = Command::new("/bin/sleep").arg("300").spawn().expect("unrelated process");
+        let mut bystander = Command::new("/bin/sleep")
+            .arg("300")
+            .spawn()
+            .expect("unrelated process");
 
         let stopped = group.stop(DROP_TIMEOUT);
         let member_ended = member.try_wait().expect("member status").is_some();
@@ -349,8 +365,14 @@ mod ownership_tests {
         let _ = bystander.wait();
 
         assert!(stopped, "the owner must finish stopping its group");
-        assert!(member_ended, "the guardian's exit alone must not report its live member stopped");
-        assert!(bystander_running, "stopping the group must preserve unrelated processes");
+        assert!(
+            member_ended,
+            "the guardian's exit alone must not report its live member stopped"
+        );
+        assert!(
+            bystander_running,
+            "stopping the group must preserve unrelated processes"
+        );
     }
 
     #[test]

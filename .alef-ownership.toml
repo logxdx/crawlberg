@@ -4189,6 +4189,7 @@ owned_paths = [
   "e2e/c/Makefile",
   "e2e/java/.mvn/wrapper/maven-wrapper.properties",
   "e2e/node/.npmrc",
+  "e2e/php/phpunit.xml",
   "packages/csharp/README.md",
   "packages/dart/README.md",
   "packages/elixir/README.md",

@@ -831,7 +831,7 @@ jobs:
           # ~keep The gnu TARGET must be added to the toolchain that is actually active here.
           # ~keep `build-ruby-gem` installs a gnu-host toolchain and renames rust-toolchain.toml
           # ~keep to .disabled for its own compile, then RESTORES it -- so by this step the
-          # ~keep active toolchain is the pinned 1.95 whose only extra target is
+          # ~keep active toolchain is the repository's pinned version whose only extra target is
           # ~keep wasm32-unknown-unknown, and cargo fails with `can't find crate for core`.
           # ~keep Installing a gnu toolchain is not the same as adding the gnu target.
           rustup target add x86_64-pc-windows-gnu

@@ -4,6 +4,8 @@ All notable changes to crawlberg are documented here.
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-10-15
+
 ### Upgrading
 
 - The minimum supported Rust version is now 1.95, matching the updated sysinfo dependency.
@@ -135,9 +137,11 @@ All notable changes to crawlberg are documented here.
 
 ### Changed
 
-- Refresh Rust, JavaScript, Python, Ruby, PHP, Elixir, and Dart dependencies. Relax the Elixir
-  allocator constraints to compatible ranges; keep the iOS libc workaround and matching
-  PyO3 async-runtime and Flutter Rust Bridge versions until compatible replacements exist.
+- Refresh Rust, JavaScript, Python, Ruby, PHP, Elixir, Dart, Java, C#, and Kotlin dependencies.
+  Relax the Elixir allocator constraints to compatible ranges; keep the iOS libc workaround and
+  matching PyO3 async-runtime and Flutter Rust Bridge versions until compatible replacements exist.
+- Align the Android package and CI on Gradle 9.8.1.
+- Build native artifacts with Rust 1.99 to fix malformed macOS libraries after debug stripping.
 
 - A batch admits its URLs as slots free up: the first fetch of a large batch starts after the
   first admission, not after every URL is admitted and queued. The scheduling of host waits
@@ -252,6 +256,11 @@ All notable changes to crawlberg are documented here.
 
 ### Fixed
 
+- Delayed Chrome target-created events preserve a parked root page and its policy generation
+  during watch handoff, while popups in its ending context remain blocked and closed.
+- Unix browser shutdown waits for all live members of its owned process group before reporting
+  success, while preserving unrelated processes.
+- The E2E runner shares per-fixture server URLs across every language suite.
 - Local build tasks resolve CMake on Unix, and E2E tasks stop their mock server after startup
   or build failures.
 - Browser and HTTP fetches within one automatic crawl share cookie updates and deletions,
