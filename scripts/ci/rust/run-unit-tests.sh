@@ -27,7 +27,7 @@ TEST_LOG="/tmp/cargo-test-$$.log"
 core_status=0
 echo "=== cargo test -p crawlberg --all-features ==="
 core_test_env=(env RUST_BACKTRACE=full)
-core_test_args=()
+core_test_args=(-p crawlberg --all-features --no-fail-fast --verbose)
 # ~keep The unoptimized core test harness exceeds Apple's 16 MiB compact-unwind offset limit.
 # Optimize only this package's test profile, preserving unwinding and every warning gate.
 if [ "$(uname -s)" = "Darwin" ]; then
@@ -38,8 +38,7 @@ fi
 if [ -n "${CRAWLBERG_TEST_THREADS:-}" ]; then
   core_test_env+=(RUST_TEST_THREADS="$CRAWLBERG_TEST_THREADS")
 fi
-if ! "${core_test_env[@]}" cargo test \
-  -p crawlberg --all-features --no-fail-fast --verbose "${core_test_args[@]}" 2>&1 | tee -a "$TEST_LOG"; then
+if ! "${core_test_env[@]}" cargo test "${core_test_args[@]}" 2>&1 | tee -a "$TEST_LOG"; then
   core_status="${PIPESTATUS[0]}"
 fi
 

@@ -15,7 +15,7 @@ assert_unit_test_commands() {
 	workspace_command+=" --exclude crawlberg-php --exclude crawlberg-wasm --exclude crawlberg-cli"
 	workspace_command+=" --all-features --no-fail-fast --verbose"
 
-	run env REPO_ROOT="$REPO_ROOT" "$SCRIPT"
+	run env REPO_ROOT="$REPO_ROOT" /bin/bash "$SCRIPT"
 
 	xberg_assert_status 0
 	xberg_assert_trace \
