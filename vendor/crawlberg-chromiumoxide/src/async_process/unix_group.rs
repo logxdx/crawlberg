@@ -130,20 +130,16 @@ impl Group {
         if child.is_none() {
             return true;
         }
-        if drain::guardian_exited(self.id).is_err() || signal_group(self.id, libc::SIGTERM).is_err() {
-            return false;
+        match drain::guardian_exited(self.id) {
+            Ok(false) if signal_group(self.id, libc::SIGTERM).is_err() => return false,
+            Err(_) => return false,
+            _ => {}
         }
         let mut killed_remaining = false;
         loop {
             match drain::guardian_exited(self.id) {
                 Ok(true) => {
                     // ~keep WNOWAIT retains the guardian's PID: no group signal can reach a reused group ID.
-                    if !killed_remaining {
-                        if signal_group(self.id, libc::SIGKILL).is_err() {
-                            return false;
-                        }
-                        killed_remaining = true;
-                    }
                     match drain::has_live_members(self.id) {
                         Ok(false) => {
                             let reaped = child.as_mut().is_some_and(|guardian| guardian.wait().is_ok());
@@ -151,6 +147,12 @@ impl Group {
                                 child.take();
                             }
                             return reaped;
+                        }
+                        Ok(true) if !killed_remaining => {
+                            // ~keep macOS reports EPERM for a zombie-only group. Recheck its census after a
+                            // ~keep failed signal: members may have exited since this census, but errors alone
+                            // ~keep never prove the group empty.
+                            killed_remaining = signal_group(self.id, libc::SIGKILL).is_ok();
                         }
                         Err(_) | Ok(true) => {}
                     }
@@ -301,6 +303,19 @@ mod ownership_tests {
         assert!(finally_empty, "a reaped member must leave no live group member");
         assert!(stopped, "the guardian-only group must stop");
         assert!(bystander_running, "the group stop must preserve unrelated processes");
+    }
+
+    #[test]
+    #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
+    fn an_already_exited_guardian_can_be_reaped_after_its_group_is_empty() {
+        let group = Group::start_script("printf .; exit 0").expect("guardian that exits immediately");
+        let deadline = Instant::now() + DROP_TIMEOUT;
+        while !drain::guardian_exited(group.id()).expect("owned guardian status") {
+            assert!(Instant::now() < deadline, "fixture guardian must exit");
+            std::thread::sleep(POLL_INTERVAL);
+        }
+        assert!(group.stop(DROP_TIMEOUT), "an empty exited group must stop without a signalable member");
+        assert!(group.child.lock().expect("guardian lock").is_none(), "the completed guardian must be reaped");
     }
 
     #[test]
