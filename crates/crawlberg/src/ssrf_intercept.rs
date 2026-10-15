@@ -3913,24 +3913,7 @@ async fn answer(browser: &Browser, shared: &Shared, event: &EventRequestPaused, 
             result
         }
         Verdict::Continue(_) if is_response_stage(event) => {
-            let mut params = ContinueResponseParams::new(request_id);
-            if _in_flight.as_ref().is_some_and(|flight| !flight.0.config.cookies_enabled)
-                && let Some(headers) = &event.response_headers
-                && headers.iter().any(|header| header.name.eq_ignore_ascii_case("set-cookie"))
-            {
-                // ~keep Chrome stores redirect cookies before its next request; removing them
-                // ~keep at the response pause enforces cookies_enabled=false within one navigation.
-                params.response_code = event.response_status_code;
-                params.response_phrase = event.response_status_text.clone();
-                params.response_headers = Some(
-                    headers
-                        .iter()
-                        .filter(|header| !header.name.eq_ignore_ascii_case("set-cookie"))
-                        .cloned()
-                        .collect(),
-                );
-            }
-            browser.execute(params).await.map(drop)
+            browser.execute(ContinueResponseParams::new(request_id)).await.map(drop)
         }
         Verdict::Continue(headers) => {
             let mut params = ContinueRequestParams::new(request_id);
@@ -4172,7 +4155,10 @@ async fn ssrf_verdict_for_browser(
 /// ~keep again and gets its own decision.
 fn headers_with_seed_host_headers(config: &CrawlConfig, url: &url::Url, headers: &Headers) -> Option<Vec<HeaderEntry>> {
     let added = seed_host_headers(config, url);
-    if added.is_empty() {
+    let has_cookie = headers.inner().as_object().is_some_and(|headers| {
+        headers.keys().any(|name| name.eq_ignore_ascii_case("cookie"))
+    });
+    if added.is_empty() && (config.cookies_enabled || !has_cookie) {
         return None;
     }
     let mut entries: Vec<HeaderEntry> = headers
@@ -4180,6 +4166,9 @@ fn headers_with_seed_host_headers(config: &CrawlConfig, url: &url::Url, headers:
         .as_object()
         .into_iter()
         .flatten()
+        // ~keep Chrome has already processed redirect Set-Cookie before Fetch's response pause;
+        // ~keep suppress its Cookie header at every request pause, retaining explicit caller headers.
+        .filter(|(existing, _)| config.cookies_enabled || !existing.eq_ignore_ascii_case("cookie"))
         .filter(|(existing, _)| !added.iter().any(|(name, _)| existing.eq_ignore_ascii_case(name)))
         .filter_map(|(existing, value)| value.as_str().map(|value| HeaderEntry::new(existing.clone(), value)))
         .collect();
@@ -8593,6 +8582,7 @@ mod tests {
 
         let seed = url::Url::parse("http://example.com/").expect("test URL must parse");
         let config = CrawlConfig {
+            cookies_enabled: true,
             auth: Some(AuthConfig::Bearer {
                 token: "tok".to_owned(),
             }),
@@ -8626,6 +8616,25 @@ mod tests {
 
         let other = url::Url::parse("http://other.test/").expect("test URL must parse");
         assert!(headers_with_seed_host_headers(&config, &other, &headers).is_none());
+    }
+
+    #[test]
+    fn should_remove_browser_cookies_when_disabled_but_keep_explicit_seed_headers() {
+        let seed = url::Url::parse("https://example.com/").expect("seed URL");
+        let headers = Headers::new(serde_json::json!({ "cOoKiE": "hop=1", "Accept": "text/html" }));
+        let mut config = CrawlConfig::default();
+        let entries = headers_with_seed_host_headers(&config, &seed, &headers).expect("cookie suppression");
+        let pairs = entries.iter().map(|entry| (entry.name.as_str(), entry.value.as_str())).collect::<Vec<_>>();
+        assert_eq!(pairs, [("Accept", "text/html")]);
+        config.credential_scope = crate::net::CredentialScope::for_seed(&seed, None);
+        config.custom_headers.insert("Cookie".to_owned(), "operator=1".to_owned());
+        let entries = headers_with_seed_host_headers(&config, &seed, &headers).expect("explicit header");
+        let cookies = entries.iter().filter(|entry| entry.name.eq_ignore_ascii_case("cookie"))
+            .map(|entry| entry.value.as_str()).collect::<Vec<_>>();
+        assert_eq!(cookies, ["operator=1"]);
+        let other = url::Url::parse("https://other.example/").expect("other URL");
+        let entries = headers_with_seed_host_headers(&config, &other, &headers).expect("other cookie suppressed");
+        assert!(entries.iter().all(|entry| !entry.name.eq_ignore_ascii_case("cookie")));
     }
 
     /// The interception outcome keeps each main-frame response's headers; its `Debug` must hide
