@@ -23,7 +23,13 @@ tasks:
         uv pip install --python "$project_python" 'maturin>=1,<2'
         project_venv="$("$project_python" -c 'import sys; print(sys.prefix)')"
         [ -n "$project_venv" ] && [ -d "$project_venv" ]
-        VIRTUAL_ENV="$project_venv" "$project_python" -m maturin develop --locked --profile dev
+        project_maturin="$("$project_python" -c '
+        import pathlib, sys, sysconfig
+        executable = "maturin.exe" if sys.platform == "win32" else "maturin"
+        print(pathlib.Path(sysconfig.get_path("scripts")) / executable)
+        ')"
+        [ -n "$project_maturin" ] && [ -x "$project_maturin" ]
+        VIRTUAL_ENV="$project_venv" "$project_maturin" develop --locked --profile dev
 
   python:
     desc: Execute the canonical Python released-call gate on the freshly built extension
