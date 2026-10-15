@@ -1,30 +1,30 @@
 %{
-  "libcrawlberg_nif-v1.10.3-nif-2.16-aarch64-apple-darwin.so.tar.gz" =>
-    "sha256:7fd6089da85123eade0343729681d529b0140abd7c444ced380db8389d263a0e",
-  "libcrawlberg_nif-v1.10.3-nif-2.16-aarch64-unknown-linux-gnu.so.tar.gz" =>
-    "sha256:f9e15494ff0672f8b5c370bf7ab5302921dea4c379af02030bb40bede10863b1",
-  "libcrawlberg_nif-v1.10.3-nif-2.16-aarch64-unknown-linux-musl.so.tar.gz" =>
-    "sha256:f3997d6d9dbcf70e407d0cf51f0c27a3541254452c2f8006724408b05ccf9652",
-  "libcrawlberg_nif-v1.10.3-nif-2.16-x86_64-apple-darwin.so.tar.gz" =>
-    "sha256:275900998469f791b344977396844b039883b04e179fc9895de253bb94947cb4",
-  "libcrawlberg_nif-v1.10.3-nif-2.16-x86_64-pc-windows-msvc.dll.tar.gz" =>
-    "sha256:832d6c2216cd6e6117794228276beafb72f436153834c3ab14b1d8f69e621296",
-  "libcrawlberg_nif-v1.10.3-nif-2.16-x86_64-unknown-linux-gnu.so.tar.gz" =>
-    "sha256:72276fd21881c4a5cf0d9e20785453e9577706f6a7746c498b457ec6c2e6f2fe",
-  "libcrawlberg_nif-v1.10.3-nif-2.16-x86_64-unknown-linux-musl.so.tar.gz" =>
-    "sha256:76a557c60d0c5c1d3eaf1229532551bb46fdb69975c32b189272361c67b19e27",
-  "libcrawlberg_nif-v1.10.3-nif-2.17-aarch64-apple-darwin.so.tar.gz" =>
-    "sha256:32aef64da56ca89b52fdad9db010246537be9e3b81fd674db88cb2bca416ece1",
-  "libcrawlberg_nif-v1.10.3-nif-2.17-aarch64-unknown-linux-gnu.so.tar.gz" =>
-    "sha256:5b56199918624b5c49e1e2611ca1ecac4424ef0ecc8fbcd791ba6379ff71b726",
-  "libcrawlberg_nif-v1.10.3-nif-2.17-aarch64-unknown-linux-musl.so.tar.gz" =>
-    "sha256:9999e57368046a7a5f9af909dd7ad917cf876779240a7325fdd99dbcf13c84d3",
-  "libcrawlberg_nif-v1.10.3-nif-2.17-x86_64-apple-darwin.so.tar.gz" =>
-    "sha256:c512bc9b3c7a856e8cb21b2a0f9469b4c316b5eae15f3bd6169d9b41d655290c",
-  "libcrawlberg_nif-v1.10.3-nif-2.17-x86_64-pc-windows-msvc.dll.tar.gz" =>
-    "sha256:a1f3eb228238bc70c6e6c73e77083a0b2d0026a6979e2b84797ab9981f42ebdf",
-  "libcrawlberg_nif-v1.10.3-nif-2.17-x86_64-unknown-linux-gnu.so.tar.gz" =>
-    "sha256:98d86b053dc07cff9b808840a5d3f617d1898777fefcd2b9339abe0d70a378f3",
-  "libcrawlberg_nif-v1.10.3-nif-2.17-x86_64-unknown-linux-musl.so.tar.gz" =>
-    "sha256:9bb0da3d79b7e8f30288abdd660038f3d4f5ab225e2c04d2f9e5cbff17348a8d"
+  "libcrawlberg_nif-v1.11.0-nif-2.16-aarch64-apple-darwin.so.tar.gz" =>
+    "sha256:df030748f8c22933f3144947ad4d74cb559ce0137e28be79fb6480e010f0ce00",
+  "libcrawlberg_nif-v1.11.0-nif-2.16-aarch64-unknown-linux-gnu.so.tar.gz" =>
+    "sha256:6d72dfe1ecd3440a5702a1fe8a19584b7d8151a76bc4bda9779424f21b1532c5",
+  "libcrawlberg_nif-v1.11.0-nif-2.16-aarch64-unknown-linux-musl.so.tar.gz" =>
+    "sha256:7545f944e7d0a443c4d92a68a008f1c5f9e00d75f10624f364f3d046512fb74d",
+  "libcrawlberg_nif-v1.11.0-nif-2.16-x86_64-apple-darwin.so.tar.gz" =>
+    "sha256:a50d60e574d42306fc0f84219ee8e3d8a00f997f2706f6e70cacddaffc660c0a",
+  "libcrawlberg_nif-v1.11.0-nif-2.16-x86_64-pc-windows-msvc.dll.tar.gz" =>
+    "sha256:20515e12f1c889cfd33678586e8ceda2411e5278b372c2e9325acb08ddfd0ac1",
+  "libcrawlberg_nif-v1.11.0-nif-2.16-x86_64-unknown-linux-gnu.so.tar.gz" =>
+    "sha256:553e64de04931a0bbb55d164eff81e13d0cccdb812b0c8aa80af3a7174c3f581",
+  "libcrawlberg_nif-v1.11.0-nif-2.16-x86_64-unknown-linux-musl.so.tar.gz" =>
+    "sha256:9965138a10ffb74fc705b1dd2b92fb1cb533fbc402d5e043232e70539fca8a2a",
+  "libcrawlberg_nif-v1.11.0-nif-2.17-aarch64-apple-darwin.so.tar.gz" =>
+    "sha256:5a62773b3bf9224132e56290cc0e95092b1ca399e940d07338a19622ff98235c",
+  "libcrawlberg_nif-v1.11.0-nif-2.17-aarch64-unknown-linux-gnu.so.tar.gz" =>
+    "sha256:8d1df8db445760652c6fedc7e00b0837ac763e91f9d97fa660634c6fe6482922",
+  "libcrawlberg_nif-v1.11.0-nif-2.17-aarch64-unknown-linux-musl.so.tar.gz" =>
+    "sha256:2f762519b0ecdb21d93a241da15f6f846f424aa4b1cc08ac02572ca2aaf15a30",
+  "libcrawlberg_nif-v1.11.0-nif-2.17-x86_64-apple-darwin.so.tar.gz" =>
+    "sha256:8f1634f6562e146537037515d1bd711427e6316359af20f982330539dd4fce37",
+  "libcrawlberg_nif-v1.11.0-nif-2.17-x86_64-pc-windows-msvc.dll.tar.gz" =>
+    "sha256:f567575e9efdb171ef62fbd564301c0efa8c98d7209fed975053929f19dc0058",
+  "libcrawlberg_nif-v1.11.0-nif-2.17-x86_64-unknown-linux-gnu.so.tar.gz" =>
+    "sha256:6f3d4665326d27495b6252586921a92b9c3c656e909a7f96443e4923575c9ca9",
+  "libcrawlberg_nif-v1.11.0-nif-2.17-x86_64-unknown-linux-musl.so.tar.gz" =>
+    "sha256:2730f14e64efa09936bec263c66cb90b43e24b5f8a546d1d0e395e8fe19c7b65"
 }
