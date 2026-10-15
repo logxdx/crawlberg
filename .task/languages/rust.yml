@@ -220,7 +220,7 @@ tasks:
       # -A clippy::inherent_to_string: alef-generated swift-bridge crate emits inherent
       # ~keep php stays excluded: ext-php-rs's build script shells out to a `php` binary,
       # which is not guaranteed to be present on every local machine (CI installs it).
-      - cargo clippy --workspace --exclude crawlberg-php -- -D warnings -A clippy::inherent_to_string
+      - cargo clippy --workspace --all-features --exclude crawlberg-php -- -D warnings -A clippy::inherent_to_string
       - task: fuzz:check
       - task: config:check
 
