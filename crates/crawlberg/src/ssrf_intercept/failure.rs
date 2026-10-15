@@ -98,22 +98,30 @@ async fn quarantine_command<S: super::ChildSocket>(
     }
 }
 
+pub(super) fn quarantine_snapshot(shared: &Shared) -> (
+    std::collections::HashSet<super::BrowserContextId>,
+    std::collections::HashSet<super::TargetId>,
+) {
+    let registry = super::lock(&shared.registry);
+    let contexts = registry.contexts.keys().chain(registry.retired_contexts.iter()).cloned().collect();
+    let targets = registry.ownership.iter().filter_map(|(target, ownership)| {
+        (!matches!(ownership, super::TargetOwnership::Other)).then(|| target.clone())
+    }).collect();
+    (contexts, targets)
+}
+
 pub(super) async fn quarantine_external_socket<S: super::ChildSocket>(
     mut socket: S,
     shared: std::sync::Arc<Shared>,
+    mut contexts: std::collections::HashSet<super::BrowserContextId>,
+    mut owned_targets: std::collections::HashSet<super::TargetId>,
 ) {
-    let mut contexts = std::collections::HashSet::new();
-    let mut owned_targets = std::collections::HashSet::new();
     // ~keep Late replies from the failed controller use IDs starting at one.
     let mut next_id = u64::MAX / 2;
     loop {
-        {
-            let registry = super::lock(&shared.registry);
-            contexts.extend(registry.contexts.keys().cloned());
-            owned_targets.extend(registry.ownership.iter().filter_map(|(target, ownership)| {
-                (!matches!(ownership, super::TargetOwnership::Other)).then(|| target.clone())
-            }));
-        }
+        let (current_contexts, current_targets) = quarantine_snapshot(&shared);
+        contexts.extend(current_contexts);
+        owned_targets.extend(current_targets);
         for context in &contexts {
             if quarantine_command(&mut socket, &mut next_id, "Target.disposeBrowserContext",
                 serde_json::json!({"browserContextId": context})).await.is_none() {

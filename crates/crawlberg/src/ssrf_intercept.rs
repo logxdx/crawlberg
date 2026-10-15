@@ -2324,7 +2324,7 @@ where
 }
 
 async fn serve_child_targets_guarded<S>(
-    mut socket: S,
+    socket: S,
     commands: &mut mpsc::Receiver<ChildCommand>,
     shared: &Arc<Shared>,
     command_timeout: Duration,
@@ -2333,17 +2333,12 @@ async fn serve_child_targets_guarded<S>(
 where
     S: ChildSocket + Send + 'static,
 {
-    let expected = controller_completed(serve_child_targets_for_browser(
-        &mut socket, commands, shared, command_timeout, browser, true,
+    let mut guarded = child_transport::GuardedChildSocket::new(socket, shared);
+    let Some(socket) = guarded.socket.as_mut() else { return false };
+    controller_completed(serve_child_targets_for_browser(
+        socket, commands, shared, command_timeout, browser, true,
     ))
-    .await;
-    if shared.origin == BrowserOrigin::External {
-        // ~keep Detaching resumes debugger-held workers. Keep this transport independently of
-        // ~keep controller shutdown until both context and all-target censuses prove disposal.
-        let shared = Arc::clone(shared);
-        tokio::spawn(failure::quarantine_external_socket(socket, shared));
-    }
-    expected
+    .await
 }
 
 async fn serve_child_targets_for_browser<S>(
