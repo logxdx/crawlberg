@@ -923,6 +923,7 @@ async fn an_external_browsers_cookies_reach_the_scrape_and_its_own_stay_out() {
     );
     let mut config = config();
     config.ssrf.deny_private = false;
+    config.cookies_enabled = true;
     config.browser.endpoint = Some(other_client.websocket_address().clone());
     let result = run(test_name, &seed, config).await;
     let received = site.received_requests().await.expect("recording");
@@ -1068,6 +1069,7 @@ async fn a_pooled_scrape_on_an_external_browser_starts_with_its_cookies() {
     });
     let mut config = pooled_config(&pool);
     config.ssrf.deny_private = false;
+    config.cookies_enabled = true;
     let result = run(test_name, &seed, config).await;
     pool.shutdown().await;
     let received = site.received_requests().await.expect("recording");

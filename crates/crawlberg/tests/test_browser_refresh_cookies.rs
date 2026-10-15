@@ -21,6 +21,7 @@ fn config() -> CrawlConfig {
             ..BrowserConfig::default()
         },
         max_redirects: 1,
+        cookies_enabled: true,
         respect_robots_txt: false,
         ..CrawlConfig::builder().allow_private_networks(true).build()
     }
