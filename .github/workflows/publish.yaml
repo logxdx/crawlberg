@@ -783,10 +783,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, label: linux }
-          - { os: ubuntu-24.04-arm, label: linux-aarch64 }
-          - { os: macos-latest, label: macos-arm64 }
-          - { os: macos-15-intel, label: macos-x86_64 }
+          - { os: ubuntu-latest, label: linux, platform: x86_64-linux }
+          - { os: ubuntu-24.04-arm, label: linux-aarch64, platform: aarch64-linux }
+          - { os: macos-latest, label: macos-arm64, platform: arm64-darwin }
+          - { os: macos-15-intel, label: macos-x86_64, platform: x86_64-darwin }
           # ~keep windows-x64 was dropped when rb-sys 0.9.127 could not resolve Ruby's
           # mingw headers (`ruby/defines.h:63:11: fatal error: 'sys/select.h' file not
           # found`) and the tracking issue oxidize-rb/rb-sys#268 sat open with no fix
@@ -796,7 +796,7 @@ jobs:
           # rather than cross-compiling from rb-sys-dock, so the header search path the
           # old failure turned on is the toolchain's own. `fail-fast: false` keeps a
           # regression here from taking the other four platform gems down with it.
-          - { os: windows-latest, label: windows-x64 }
+          - { os: windows-latest, label: windows-x64, platform: x64-mingw-ucrt }
     steps:
       - uses: actions/checkout@v7
         with:
@@ -834,34 +834,12 @@ jobs:
         with:
           package-dir: packages/ruby
 
-      - name: Build platform gem
-        if: runner.os != 'Windows'
+      - name: Package and verify native platform gem
         shell: bash
-        run: |
-          cd packages/ruby
-          bundle exec rake compile
-          bundle exec rake build
-
-      # ~keep Windows needs the mingw environment that `build-ruby-gem@v1` already uses for the
-      # same compile, and this step previously ran in a plain bash shell without it. Cargo then
-      # fell back to the msvc host target while RubyInstaller's Ruby is mingw32, and rb-sys
-      # refused: `Ruby was built for target_os="mingw32", but Cargo is compiling for
-      # "x86_64-pc-windows-msvc"`. That failure took the WHOLE RubyGems target down in v1.6.1 --
-      # `publish-rubygems` needs the entire matrix green, so four already-built platform gems
-      # were discarded with it. Keep this invocation identical to the action's.
-      - name: Build platform gem (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          # ~keep The gnu TARGET must be added to the toolchain that is actually active here.
-          # ~keep `build-ruby-gem` installs a gnu-host toolchain and renames rust-toolchain.toml
-          # ~keep to .disabled for its own compile, then RESTORES it -- so by this step the
-          # ~keep active toolchain is the repository's pinned version whose only extra target is
-          # ~keep wasm32-unknown-unknown, and cargo fails with `can't find crate for core`.
-          # ~keep Installing a gnu toolchain is not the same as adding the gnu target.
-          rustup target add x86_64-pc-windows-gnu
-          $unixPath = ridk exec bash -lc "cygpath -au '$env:GITHUB_WORKSPACE/packages/ruby'"
-          ridk exec bash -lc "cd '$unixPath' && export CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ CARGO_BUILD_TARGET=x86_64-pc-windows-gnu && bundle exec rake compile && bundle exec rake build"
+        env:
+          EXPECTED_PLATFORM: ${{ matrix.platform }}
+          VERSION: ${{ needs.prepare.outputs.gem_version }}
+        run: ruby scripts/publish/package-ruby-native.rb packages/ruby "$EXPECTED_PLATFORM" "$VERSION"
 
       - name: Drop source gem on non-canonical builders
         if: ${{ matrix.label != 'linux' }}
@@ -880,6 +858,7 @@ jobs:
         with:
           name: rubygems-${{ matrix.label }}
           path: packages/ruby/pkg/*.gem
+          if-no-files-found: error
           retention-days: 14
 
   php-extension:
