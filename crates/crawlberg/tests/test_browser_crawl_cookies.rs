@@ -891,3 +891,44 @@ async fn should_send_an_http_redirect_cookie_to_the_browser_in_automatic_mode() 
     assert_eq!(result.len(), 1);
     assert_eq!(cookies_sent_by(&site, "/last", true).await, [["http=1"]]);
 }
+
+#[tokio::test]
+async fn should_isolate_http_browser_cookie_bridges_between_concurrent_crawls() {
+    let test_name = "should_isolate_http_browser_cookie_bridges_between_concurrent_crawls";
+    let mut sites = Vec::new();
+    for name in ["first", "second"] {
+        let site = MockServer::start().await;
+        browser_only_route(
+            &site,
+            "/",
+            html("<a href='/hop'>Hop</a>").append_header("set-cookie", format!("{name}=1; Path=/")),
+        )
+        .await;
+        route(
+            &site,
+            "/hop",
+            ResponseTemplate::new(302)
+                .append_header("location", "/last")
+                .set_delay(Duration::from_millis(500)),
+        )
+        .await;
+        browser_only_route(&site, "/last", html("last")).await;
+        sites.push(site);
+    }
+    let engine = create_engine(Some(config(BrowserMode::Auto, true))).expect("engine");
+    let seeds = sites.iter().map(|site| format!("{}/", site.uri())).collect();
+    let results = batch_crawl(&engine, seeds).await.expect("batch crawl");
+    assert_eq!(results.results.len(), 2);
+    for result in results.results {
+        let Some(crawled) = pages(test_name, result.result.ok_or_else(|| {
+            crawlberg::CrawlError::other(result.error.unwrap_or_else(|| "missing crawl result".to_owned()))
+        })) else {
+            return;
+        };
+        assert_eq!(crawled.len(), 2);
+    }
+    for (site, own) in sites.iter().zip(["first=1", "second=1"]) {
+        assert_eq!(cookies_sent_by(site, "/hop", false).await, [[own]]);
+        assert_eq!(cookies_sent_by(site, "/last", true).await, [[own]]);
+    }
+}
