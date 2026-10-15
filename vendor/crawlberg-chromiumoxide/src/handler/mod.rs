@@ -222,7 +222,8 @@ impl Handler {
                                 // initialized
                                 target.set_initiator(tx);
                             } else {
-                                self.undiscovered_pages.insert(resp.target_id, PendingPage { initiator: tx, started });
+                                self.undiscovered_pages
+                                    .insert(resp.target_id.clone(), PendingPage { initiator: tx, started });
                             }
                         }
                         Err(err) => {
@@ -465,7 +466,9 @@ impl Handler {
     /// Fired when the target was destroyed in the browser
     fn on_target_destroyed(&mut self, event: EventTargetDestroyed) {
         if let Some(pending) = self.undiscovered_pages.remove(&event.target_id) {
-            let _ = pending.initiator.send(Err(CdpError::msg("page target was destroyed before discovery")));
+            let _ = pending
+                .initiator
+                .send(Err(CdpError::msg("page target was destroyed before discovery")));
         }
         if let Some(target) = self.targets.remove(&event.target_id) {
             // TODO shutdown?
@@ -480,9 +483,12 @@ impl Handler {
     /// Remove all commands where `now` > `timestamp of command starting point +
     /// request timeout` and notify the senders that their request timed out.
     fn evict_timed_out_commands(&mut self, now: Instant) {
-        let expired_pages = self.undiscovered_pages.iter()
+        let expired_pages = self
+            .undiscovered_pages
+            .iter()
             .filter(|(_, pending)| now > pending.started + self.config.request_timeout)
-            .map(|(target, _)| target.clone()).collect::<Vec<_>>();
+            .map(|(target, _)| target.clone())
+            .collect::<Vec<_>>();
         for target in expired_pages {
             if let Some(pending) = self.undiscovered_pages.remove(&target) {
                 let _ = pending.initiator.send(Err(CdpError::Timeout));
