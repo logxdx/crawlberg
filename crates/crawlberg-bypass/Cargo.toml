@@ -18,7 +18,7 @@ description = "Configurable HTTP-based BypassProvider implementations for crawlb
 async-trait = { workspace = true }
 crawlberg = { path = "../crawlberg", version = "1.10.3" }
 reqwest = { workspace = true }
-saphyr = "0.1.0"
+saphyr = "0.2.2"
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }

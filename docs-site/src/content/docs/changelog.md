@@ -6,6 +6,9 @@ All notable changes to crawlberg are documented here.
 
 ### Upgrading
 
+- The minimum supported Rust version is now 1.95, matching the updated sysinfo dependency.
+- YAML bypass configurations reject duplicate mapping keys and raw NUL characters.
+
 - Set `cookies_enabled=true` for cookie-based login through a browser endpoint or saved profile.
   `false` now suppresses automatic Cookie headers from those stores as well as redirect cookies.
 - The converter upgrade renders an image with an empty source as its alt text and keeps markup
@@ -131,6 +134,10 @@ All notable changes to crawlberg are documented here.
   until the process ends. (#630)
 
 ### Changed
+
+- Refresh Rust, JavaScript, Python, Ruby, PHP, Elixir, and Dart dependencies. Relax the Elixir
+  allocator constraints to compatible ranges; keep the iOS libc workaround and matching
+  PyO3 async-runtime and Flutter Rust Bridge versions until compatible replacements exist.
 
 - A batch admits its URLs as slots free up: the first fetch of a large batch starts after the
   first admission, not after every URL is admitted and queued. The scheduling of host waits
@@ -259,7 +266,7 @@ All notable changes to crawlberg are documented here.
   tabs remain owned by the caller. (#763)
 - Browser page creation tolerates a creation reply before target discovery and repeated discovery
   events, preserving pending page requests instead of panicking or cancelling them. (#701)
-- Markdown conversion uses html-to-markdown 3.18.0, including selector exclusions for table
+- Markdown conversion uses html-to-markdown 3.18.1, including selector exclusions for table
   captions, cells, rows and sections with hidden content enabled or disabled. The converter
   also corrects malformed HTML, whitespace and raw-text handling. (#730)
 - Native browser pages share a complete cookie jar within one crawl, including HttpOnly,
