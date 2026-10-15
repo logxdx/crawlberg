@@ -8,7 +8,8 @@ setup() {
 	xberg_stub_trace cargo
 }
 
-@test "run-unit-tests should_pass_no_fail_fast_to_all_three_test_runs" {
+assert_unit_test_commands() {
+	local core_command="$1"
 	local workspace_command="cargo test --workspace"
 	workspace_command+=" --exclude crawlberg --exclude crawlberg-py --exclude crawlberg-node"
 	workspace_command+=" --exclude crawlberg-php --exclude crawlberg-wasm --exclude crawlberg-cli"
@@ -18,7 +19,21 @@ setup() {
 
 	xberg_assert_status 0
 	xberg_assert_trace \
-		"cargo test -p crawlberg --all-features --no-fail-fast --verbose" \
+		"$core_command" \
 		"$workspace_command" \
 		"cargo test -p crawlberg-cli --features all --no-fail-fast --verbose"
+}
+
+@test "run-unit-tests should_pass_no_fail_fast_to_all_three_test_runs_on_linux" {
+	xberg_stub uname 'printf "%s\n" Linux'
+
+	assert_unit_test_commands "cargo test -p crawlberg --all-features --no-fail-fast --verbose"
+}
+
+@test "run-unit-tests should_optimize_only_the_core_test_profile_on_darwin" {
+	xberg_stub uname 'printf "%s\n" Darwin'
+	local core_command="cargo test -p crawlberg --all-features --no-fail-fast --verbose"
+	core_command+=" --config profile.test.package.crawlberg.opt-level=1"
+
+	assert_unit_test_commands "$core_command"
 }
