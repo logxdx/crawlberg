@@ -48,7 +48,7 @@
     ]
   },
   "scripts": {
-    "build": "pnpm --package @napi-rs/cli@^3.7.3 dlx napi build --platform --release",
+    "build": "pnpm --package @napi-rs/cli@^3.7.3 dlx napi build --platform --dts index.native.d.ts --release",
     "artifacts": "pnpm --package @napi-rs/cli@^3.7.3 dlx napi artifacts",
     "prepublishOnly": "pnpm --package @napi-rs/cli@^3.7.3 dlx napi prepublish -t npm --skip-optional-publish"
   },

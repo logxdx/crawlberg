@@ -691,6 +691,7 @@ jobs:
           crate-dir: crates/crawlberg-node
           target: ${{ matrix.target }}
           use-napi-cross: ${{ matrix.use_napi_cross }}
+          dts-name: index.native.d.ts # ~keep NAPI must preserve Alef's public index.d.ts.
           pack-target-tarball: node-bindings-${{ matrix.target }}.tar.gz
 
       - uses: actions/upload-artifact@v7
