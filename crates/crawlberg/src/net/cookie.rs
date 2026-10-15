@@ -7,11 +7,15 @@
 //! `onrender.com` or `github.io`, a country suffix such as `co.il`, or a bare TLD). The
 //! suffixes come from the Mozilla Public Suffix List that the [`psl`] crate compiles in.
 //!
-//! [`PolicyCookieStore`] wraps [`reqwest::cookie::Jar`] and applies this check to every
-//! `Set-Cookie` header before it reaches the jar, so `http::build_client` can hand it to
+//! [`PolicyCookieStore`] applies these checks to the cookie parser behind reqwest before
+//! storing a cookie, so `http::build_client` can hand it to
 //! `ClientBuilder::cookie_provider` in place of the unvalidated `cookie_store(true)`.
 
-use reqwest::cookie::{CookieStore, Jar};
+use std::sync::{PoisonError, RwLock};
+
+use reqwest::cookie::CookieStore;
+#[cfg(test)]
+use reqwest::cookie::Jar;
 use reqwest::header::HeaderValue;
 
 /// Error rejecting a cookie's `Domain` attribute.
@@ -124,7 +128,8 @@ fn without_domain_attribute(raw_set_cookie: &str) -> String {
 }
 
 /// [`reqwest::cookie::CookieStore`] that enforces [`validate_cookie_domain`] on every
-/// `Set-Cookie` header before delegating to an inner [`Jar`].
+/// `Set-Cookie` header before storing it with reqwest's underlying cookie parser.
+/// Reads and admission share a lock so an insecure response cannot transiently replace a Secure cookie.
 ///
 /// Wire in place of `ClientBuilder::cookie_store(true)`:
 ///
@@ -138,7 +143,7 @@ fn without_domain_attribute(raw_set_cookie: &str) -> String {
 /// ```
 #[derive(Debug, Default)]
 pub struct PolicyCookieStore {
-    inner: Jar,
+    inner: RwLock<cookie_store::CookieStore>,
 }
 
 impl CookieStore for PolicyCookieStore {
@@ -167,12 +172,54 @@ impl CookieStore for PolicyCookieStore {
                 }
             })
             .collect();
-        self.inner.set_cookies(&mut permitted.iter(), url);
+        let mut store = self.inner.write().unwrap_or_else(PoisonError::into_inner);
+        for header in permitted {
+            let Some(raw) = header.to_str().ok() else { continue };
+            let Ok(cookie) = cookie_store::Cookie::parse(raw, url) else { continue };
+            if !secure_cookie_source(url)
+                && (cookie.secure() == Some(true) || shadows_secure_cookie(&store, &cookie))
+            {
+                continue;
+            }
+            if let Err(error) = store.insert(cookie.into_owned(), url) {
+                tracing::debug!(error = %error, "dropping a response cookie the jar would not store");
+            }
+        }
     }
 
     fn cookies(&self, url: &url::Url) -> Option<HeaderValue> {
-        self.inner.cookies(url)
+        let store = self.inner.read().unwrap_or_else(PoisonError::into_inner);
+        let value = store.get_request_values(url)
+            .map(|(name, value)| format!("{name}={value}"))
+            .collect::<Vec<_>>()
+            .join("; ");
+        (!value.is_empty()).then(|| HeaderValue::from_str(&value).ok()).flatten()
     }
+}
+
+fn secure_cookie_source(url: &url::Url) -> bool {
+    url.scheme() == "https"
+        || match url.host() {
+            Some(url::Host::Domain(host)) => host == "localhost" || host.ends_with(".localhost"),
+            Some(url::Host::Ipv4(address)) => address.is_loopback(),
+            Some(url::Host::Ipv6(address)) => address.is_loopback(),
+            None => false,
+        }
+}
+
+fn shadows_secure_cookie(store: &cookie_store::CookieStore, incoming: &cookie_store::Cookie<'_>) -> bool {
+    let Some(domain) = incoming.domain.as_cow() else { return false };
+    store.iter_unexpired().any(|existing| {
+        if existing.secure() != Some(true) || existing.name() != incoming.name() {
+            return false;
+        }
+        let Some(existing_domain) = existing.domain.as_cow() else { return false };
+        let path: &str = &incoming.path;
+        let protected: &str = &existing.path;
+        (is_domain_match(&domain, &existing_domain) || is_domain_match(&existing_domain, &domain))
+            && (path == protected || (path.starts_with(protected)
+                && (protected.ends_with('/') || path.as_bytes().get(protected.len()) == Some(&b'/'))))
+    })
 }
 
 #[cfg(test)]
