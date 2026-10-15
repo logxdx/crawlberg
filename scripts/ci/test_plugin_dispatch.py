@@ -84,9 +84,7 @@ class PluginDispatchTests(unittest.TestCase):
                 ("release", False, "refs/tags/v1.11.0", False),
             ):
                 with self.subTest(job=name, event=event, plugins_only=plugins_only, ref=ref):
-                    actual = evaluate_condition(
-                        self.jobs[name]["if"], event=event, plugins_only=plugins_only, ref=ref
-                    )
+                    actual = evaluate_condition(self.jobs[name]["if"], event=event, plugins_only=plugins_only, ref=ref)
                     assert actual is expected
 
     def test_plugin_verification_uses_the_reviewed_action_revision(self) -> None:

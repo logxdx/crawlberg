@@ -260,6 +260,7 @@ All notable changes to crawlberg are documented here.
 
 ### Fixed
 
+- Manual plugin publishing honors dry runs and rejects plugin-only dispatches outside `main`.
 - Delayed Chrome target-created events preserve a parked root page and its policy generation
   during watch handoff, while popups in its ending context remain blocked and closed.
 - Unix browser shutdown waits for all live members of its owned process group before reporting
