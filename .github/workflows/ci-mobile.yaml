@@ -80,8 +80,7 @@ jobs:
         with:
           crate-name: crawlberg-ffi
           lib-name: crawlberg_ffi
-          abi: ${{ matrix.abi }}
-          target: ${{ matrix.target }}
+          abis: ${{ matrix.abi }}
       - name: Stage native into AAR jniLibs
         run: |
           mkdir -p "packages/kotlin-android/src/main/jniLibs/${{ matrix.abi }}"
@@ -89,6 +88,8 @@ jobs:
                 "packages/kotlin-android/src/main/jniLibs/${{ matrix.abi }}/"
         shell: bash
       - uses: xberg-io/actions/setup-gradle@v1
+        with:
+          gradle-version: "9.8.1"
       - name: Assemble AAR
         working-directory: packages/kotlin-android
         run: gradle assembleDebug --no-daemon

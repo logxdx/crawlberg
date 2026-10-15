@@ -355,6 +355,8 @@ jobs:
       - name: Setup Gradle
         if: matrix.gradle
         uses: xberg-io/actions/setup-gradle@v1
+        with:
+          gradle-version: "9.8.1"
 
       # gradle: true is exclusive to kotlin_android. No org action wraps
       # SDK-only setup (setup-android-emulator bundles a full AVD, which
