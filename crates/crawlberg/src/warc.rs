@@ -217,19 +217,19 @@ fn build_http_block(status: u16, headers: &[(&str, &str)], body: &[u8]) -> Resul
 fn write_record(w: &mut BufWriter<File>, headers: &[(&str, Cow<'_, str>)], payload: &[u8]) -> Result<(), CrawlError> {
     let map_io = |e: std::io::Error| CrawlError::other(format!("write WARC record: {e}"));
 
-    w.write_all(WARC_VERSION.as_bytes()).map_err(&map_io)?;
-    w.write_all(b"\r\n").map_err(&map_io)?;
+    w.write_all(WARC_VERSION.as_bytes()).map_err(map_io)?;
+    w.write_all(b"\r\n").map_err(map_io)?;
 
     for (name, value) in headers {
-        w.write_all(name.as_bytes()).map_err(&map_io)?;
-        w.write_all(b": ").map_err(&map_io)?;
-        w.write_all(value.as_bytes()).map_err(&map_io)?;
-        w.write_all(b"\r\n").map_err(&map_io)?;
+        w.write_all(name.as_bytes()).map_err(map_io)?;
+        w.write_all(b": ").map_err(map_io)?;
+        w.write_all(value.as_bytes()).map_err(map_io)?;
+        w.write_all(b"\r\n").map_err(map_io)?;
     }
 
-    w.write_all(b"\r\n").map_err(&map_io)?;
-    w.write_all(payload).map_err(&map_io)?;
-    w.write_all(b"\r\n\r\n").map_err(&map_io)?;
+    w.write_all(b"\r\n").map_err(map_io)?;
+    w.write_all(payload).map_err(map_io)?;
+    w.write_all(b"\r\n\r\n").map_err(map_io)?;
 
     Ok(())
 }
