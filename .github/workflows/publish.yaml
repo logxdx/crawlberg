@@ -1502,6 +1502,12 @@ jobs:
       - uses: xberg-io/actions/setup-rust@v1
         with:
           macos-dynamic-lookup: "false"
+      # ~keep cargo-zigbuild's unreleased fix drops rustc's ignored -Wl,-O1 flag for Zig 0.17.
+      - name: Install compatible Swift cross-linker
+        run: >-
+          cargo install --locked --force
+          --git https://github.com/rust-cross/cargo-zigbuild
+          --rev 371bac84444fe6f998955889f2106802b817094b cargo-zigbuild
       - uses: xberg-io/actions/build-swift-artifactbundle@v1
         id: bundle
         # ~keep Rust otherwise links the iOS archive for 10.0 while current aws-lc objects use
