@@ -81,7 +81,10 @@ pub(super) struct GuardedChildSocket<S: ChildSocket + Send + 'static> {
 
 impl<S: ChildSocket + Send + 'static> GuardedChildSocket<S> {
     pub(super) fn new(socket: S, shared: &std::sync::Arc<super::Shared>) -> Self {
-        Self { socket: Some(socket), shared: std::sync::Arc::clone(shared) }
+        Self {
+            socket: Some(socket),
+            shared: std::sync::Arc::clone(shared),
+        }
     }
 }
 
@@ -95,7 +98,10 @@ impl<S: ChildSocket + Send + 'static> Drop for GuardedChildSocket<S> {
         // ~keep debugger session would resume the workers the security controller held paused.
         let (contexts, owned_targets) = super::failure::quarantine_snapshot(&self.shared);
         tokio::spawn(super::failure::quarantine_external_socket(
-            socket, std::sync::Arc::clone(&self.shared), contexts, owned_targets,
+            socket,
+            std::sync::Arc::clone(&self.shared),
+            contexts,
+            owned_targets,
         ));
     }
 }

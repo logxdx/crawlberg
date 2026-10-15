@@ -73,40 +73,61 @@ pub(super) fn child_ack_fail(shared: &Shared, pending_command: &'static str, cdp
 
 async fn quarantine_command<S: super::ChildSocket>(
     socket: &mut S,
-    next_id: &mut u64,
+    next_id: &mut i32,
     method: &str,
     params: serde_json::Value,
 ) -> Option<serde_json::Value> {
-    let id = super::child_command_id(next_id)?;
-    socket.send(super::child_message(id, method, params, None)).await.ok()?;
+    let id = *next_id;
+    *next_id = next_id.saturating_sub(1);
+    let command = serde_json::json!({"id": id, "method": method, "params": params});
+    socket
+        .send(async_tungstenite::tungstenite::Message::Text(
+            command.to_string().into(),
+        ))
+        .await
+        .ok()?;
     loop {
-        match socket.next().await? {
-            Ok(async_tungstenite::tungstenite::Message::Text(text)) => {
+        let message = socket.next().await?.ok()?;
+        match message {
+            async_tungstenite::tungstenite::Message::Text(text) => {
                 let Ok(value) = chromiumoxide::conn::parse_message::<serde_json::Value>(text.as_ref()) else {
                     continue;
                 };
-                if value["id"].as_u64() == Some(id) {
+                if value["id"].as_i64() == Some(i64::from(id)) {
                     return Some(value);
                 }
             }
-            Ok(async_tungstenite::tungstenite::Message::Ping(payload)) => {
-                socket.send(async_tungstenite::tungstenite::Message::Pong(payload)).await.ok()?;
+            async_tungstenite::tungstenite::Message::Ping(payload) => {
+                socket
+                    .send(async_tungstenite::tungstenite::Message::Pong(payload))
+                    .await
+                    .ok()?;
             }
-            Ok(async_tungstenite::tungstenite::Message::Close(_)) | Err(_) => return None,
-            Ok(_) => {}
+            async_tungstenite::tungstenite::Message::Close(_) => return None,
+            _ => {}
         }
     }
 }
 
-pub(super) fn quarantine_snapshot(shared: &Shared) -> (
+pub(super) fn quarantine_snapshot(
+    shared: &Shared,
+) -> (
     std::collections::HashSet<super::BrowserContextId>,
     std::collections::HashSet<super::TargetId>,
 ) {
     let registry = super::lock(&shared.registry);
-    let contexts = registry.contexts.keys().chain(registry.retired_contexts.iter()).cloned().collect();
-    let targets = registry.ownership.iter().filter_map(|(target, ownership)| {
-        (!matches!(ownership, super::TargetOwnership::Other)).then(|| target.clone())
-    }).collect();
+    let contexts = registry
+        .contexts
+        .keys()
+        .chain(registry.retired_contexts.iter())
+        .cloned()
+        .collect();
+    let targets = registry
+        .ownership
+        .iter()
+        .filter(|(_, ownership)| !matches!(ownership, super::TargetOwnership::Other))
+        .map(|(target, _)| target.clone())
+        .collect();
     (contexts, targets)
 }
 
@@ -116,30 +137,59 @@ pub(super) async fn quarantine_external_socket<S: super::ChildSocket>(
     mut contexts: std::collections::HashSet<super::BrowserContextId>,
     mut owned_targets: std::collections::HashSet<super::TargetId>,
 ) {
-    // ~keep Late replies from the failed controller use IDs starting at one.
-    let mut next_id = u64::MAX / 2;
+    // ~keep Chrome accepts int32 IDs; negative values cannot collide with late controller
+    // ~keep replies, whose IDs start at one. Commands here are strictly sequential.
+    let mut next_id = -1_i32;
     loop {
         let (current_contexts, current_targets) = quarantine_snapshot(&shared);
         contexts.extend(current_contexts);
         owned_targets.extend(current_targets);
         for context in &contexts {
-            if quarantine_command(&mut socket, &mut next_id, "Target.disposeBrowserContext",
-                serde_json::json!({"browserContextId": context})).await.is_none() {
+            if quarantine_command(
+                &mut socket,
+                &mut next_id,
+                "Target.disposeBrowserContext",
+                serde_json::json!({"browserContextId": context}),
+            )
+            .await
+            .is_none()
+            {
                 return;
             }
         }
         let Some(existing) = quarantine_command(
-            &mut socket, &mut next_id, "Target.getBrowserContexts", serde_json::json!({}),
-        ).await else { return };
+            &mut socket,
+            &mut next_id,
+            "Target.getBrowserContexts",
+            serde_json::json!({}),
+        )
+        .await
+        else {
+            return;
+        };
         let Some(targets) = quarantine_command(
-            &mut socket, &mut next_id, "Target.getTargets", serde_json::json!({"filter": [{}]}),
-        ).await else { return };
+            &mut socket,
+            &mut next_id,
+            "Target.getTargets",
+            serde_json::json!({"filter": [{}]}),
+        )
+        .await
+        else {
+            return;
+        };
         let absent = existing["result"]["browserContextIds"].as_array().is_some_and(|ids| {
-            ids.iter().all(|id| id.as_str().is_some_and(|id| !contexts.iter().any(|context| id == context.inner())))
+            ids.iter().all(|id| {
+                id.as_str()
+                    .is_some_and(|id| !contexts.iter().any(|context| id == context.inner()))
+            })
         }) && targets["result"]["targetInfos"].as_array().is_some_and(|infos| {
             infos.iter().all(|info| {
-                info["targetId"].as_str().is_some_and(|id| !owned_targets.iter().any(|target| id == target.inner()))
-                    && !contexts.iter().any(|context| info["browserContextId"].as_str() == Some(context.inner()))
+                info["targetId"]
+                    .as_str()
+                    .is_some_and(|id| !owned_targets.iter().any(|target| id == target.inner()))
+                    && !contexts
+                        .iter()
+                        .any(|context| info["browserContextId"].as_str() == Some(context.inner()))
             })
         });
         if absent && shared.opening.load(Ordering::Acquire) == 0 {

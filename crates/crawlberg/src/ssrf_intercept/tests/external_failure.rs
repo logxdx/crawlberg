@@ -34,11 +34,18 @@ async fn assert_external_failure_retains_held_workers(cancel: bool) {
     for (context_present, worker_still_present) in [(true, false), (false, true), (false, false)] {
         let dispose = next_child_message(&mut socket).await;
         assert_eq!(dispose["method"], "Target.disposeBrowserContext");
-        assert_eq!(dispose["params"]["browserContextId"], context.inner());
+        assert_eq!(
+            dispose["params"]["browserContextId"].as_str(),
+            Some(context.inner().as_str())
+        );
         answer_child_command(&mut socket, &dispose).await;
         let contexts = next_child_message(&mut socket).await;
         assert_eq!(contexts["method"], "Target.getBrowserContexts");
-        let ids = if context_present { serde_json::json!([context.inner()]) } else { serde_json::json!([]) };
+        let ids = if context_present {
+            serde_json::json!([context.inner()])
+        } else {
+            serde_json::json!([])
+        };
         socket
             .send(async_tungstenite::tungstenite::Message::Text(
                 serde_json::json!({"id": contexts["id"], "result": {"browserContextIds": ids}})
@@ -67,5 +74,8 @@ async fn assert_external_failure_retains_held_workers(cancel: bool) {
     let ended = tokio::time::timeout(Duration::from_secs(2), socket.next())
         .await
         .expect("the quarantine releases its socket after authoritative absence");
-    assert!(matches!(ended, None | Some(Ok(async_tungstenite::tungstenite::Message::Close(_))) | Some(Err(_))));
+    assert!(matches!(
+        ended,
+        None | Some(Ok(async_tungstenite::tungstenite::Message::Close(_))) | Some(Err(_))
+    ));
 }

@@ -389,7 +389,10 @@ impl ParkedFloodGate {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
             .expect("parked flood control listener");
-        let endpoint = format!("ws://localhost:{}/", listener.local_addr().expect("control address").port());
+        let endpoint = format!(
+            "ws://localhost:{}/",
+            listener.local_addr().expect("control address").port()
+        );
         let (connected, ready) = tokio::sync::oneshot::channel();
         let (start, triggered) = tokio::sync::oneshot::channel();
         let (acknowledged, refused) = tokio::sync::oneshot::channel();
@@ -413,7 +416,13 @@ impl ParkedFloodGate {
             }
             panic!("parked page disconnected before acknowledging a rejected flood request");
         });
-        Self { endpoint, ready, start: Some(start), refused, task }
+        Self {
+            endpoint,
+            ready,
+            start: Some(start),
+            refused,
+            task,
+        }
     }
 
     async fn start(&mut self) {
@@ -422,7 +431,11 @@ impl ParkedFloodGate {
             .await
             .expect("the parked page must connect its control socket")
             .expect("control readiness sender");
-        self.start.take().expect("one flood trigger").send(()).expect("flood start receiver");
+        self.start
+            .take()
+            .expect("one flood trigger")
+            .send(())
+            .expect("flood start receiver");
         tokio::time::timeout(bound, &mut self.refused)
             .await
             .expect("the parked page must actually issue a rejected flood request")

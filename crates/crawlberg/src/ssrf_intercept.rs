@@ -2334,9 +2334,16 @@ where
     S: ChildSocket + Send + 'static,
 {
     let mut guarded = child_transport::GuardedChildSocket::new(socket, shared);
-    let Some(socket) = guarded.socket.as_mut() else { return false };
+    let Some(socket) = guarded.socket.as_mut() else {
+        return false;
+    };
     controller_completed(serve_child_targets_for_browser(
-        socket, commands, shared, command_timeout, browser, true,
+        socket,
+        commands,
+        shared,
+        command_timeout,
+        browser,
+        true,
     ))
     .await
 }
@@ -7334,8 +7341,8 @@ mod tests {
         assert!(!controller.await.expect("child controller task"));
     }
 
-    mod failure_phases;
     mod external_failure;
+    mod failure_phases;
 
     #[tokio::test]
     async fn a_cancelled_arm_caller_does_not_leave_a_pending_command() {
@@ -8662,26 +8669,37 @@ mod tests {
 
     #[test]
     fn should_remove_browser_cookies_when_disabled_but_keep_explicit_seed_headers() {
-        use chromiumoxide::cdp::browser_protocol::network::Headers;
         use super::headers_with_seed_host_headers;
         use crate::types::CrawlConfig;
+        use chromiumoxide::cdp::browser_protocol::network::Headers;
 
         let seed = url::Url::parse("https://example.com/").expect("seed URL");
         let headers = Headers::new(serde_json::json!({ "cOoKiE": "hop=1", "Accept": "text/html" }));
         let mut config = CrawlConfig::default();
         let entries = headers_with_seed_host_headers(&config, &seed, &headers).expect("cookie suppression");
-        let pairs = entries.iter().map(|entry| (entry.name.as_str(), entry.value.as_str())).collect::<Vec<_>>();
+        let pairs = entries
+            .iter()
+            .map(|entry| (entry.name.as_str(), entry.value.as_str()))
+            .collect::<Vec<_>>();
         assert_eq!(pairs, [("Accept", "text/html"), ("Cookie", "")]);
         config.credential_scope = crate::net::CredentialScope::for_seed(&seed, None);
-        config.custom_headers.insert("Cookie".to_owned(), "operator=1".to_owned());
+        config
+            .custom_headers
+            .insert("Cookie".to_owned(), "operator=1".to_owned());
         let entries = headers_with_seed_host_headers(&config, &seed, &headers).expect("explicit header");
-        let cookies = entries.iter().filter(|entry| entry.name.eq_ignore_ascii_case("cookie"))
-            .map(|entry| entry.value.as_str()).collect::<Vec<_>>();
+        let cookies = entries
+            .iter()
+            .filter(|entry| entry.name.eq_ignore_ascii_case("cookie"))
+            .map(|entry| entry.value.as_str())
+            .collect::<Vec<_>>();
         assert_eq!(cookies, ["operator=1"]);
         let other = url::Url::parse("https://other.example/").expect("other URL");
         let entries = headers_with_seed_host_headers(&config, &other, &headers).expect("other cookie suppressed");
-        let cookies = entries.iter().filter(|entry| entry.name.eq_ignore_ascii_case("cookie"))
-            .map(|entry| entry.value.as_str()).collect::<Vec<_>>();
+        let cookies = entries
+            .iter()
+            .filter(|entry| entry.name.eq_ignore_ascii_case("cookie"))
+            .map(|entry| entry.value.as_str())
+            .collect::<Vec<_>>();
         assert_eq!(cookies, [""]);
         let empty = Headers::new(serde_json::json!({}));
         let entries = headers_with_seed_host_headers(&CrawlConfig::default(), &other, &empty)
