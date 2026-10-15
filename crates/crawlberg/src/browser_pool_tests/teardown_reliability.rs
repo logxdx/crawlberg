@@ -72,7 +72,10 @@ fn capture(f: impl FnOnce(&Events)) -> Vec<(tracing::Level, String)> {
 fn assert_clean_phase(pool: &BrowserPool, events: &Events, phase: &str) {
     let captured = events.0.lock().expect("events").clone();
     assert_no_failures(&captured, &format!("{phase}, pipe={}", pool.config.private_pipe));
-    assert!(pool.is_healthy(), "{phase}: owned browser must stay healthy: {captured:?}");
+    assert!(
+        pool.is_healthy(),
+        "{phase}: owned browser must stay healthy: {captured:?}"
+    );
 }
 
 async fn warm(pool: &BrowserPool, events: &Events) -> std::path::PathBuf {
