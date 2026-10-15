@@ -131,9 +131,16 @@ impl Group {
             return true;
         }
         match drain::guardian_exited(self.id) {
-            Ok(false) if signal_group(self.id, libc::SIGTERM).is_err() => return false,
+            Ok(false) => {
+                // ~keep An independently exiting guardian can leave only zombies between the probe and TERM.
+                if signal_group(self.id, libc::SIGTERM).is_err()
+                    && !matches!(drain::guardian_exited(self.id), Ok(true))
+                {
+                    return false;
+                }
+            }
             Err(_) => return false,
-            _ => {}
+            Ok(true) => {}
         }
         let mut killed_remaining = false;
         loop {
