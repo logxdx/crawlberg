@@ -602,6 +602,13 @@ impl RedirectCursor {
         // ~keep Bound the read per hop: the seed's final response is now consumed directly as
         // the depth-0 page, so a document seed must be bounded here rather than in the loop.
         let mut hop_engine = engine.clone_for_url(&chain.current_url);
+        #[cfg(feature = "browser-native")]
+        if let Some(cookies) = &engine.native_cookies {
+            // ~keep Share only the jar; every redirect cursor keeps its own initiating site.
+            // ~keep HTTP and native attempts of this hop must use that same local site context.
+            native_state.share_cookies_from(cookies);
+            hop_engine.native_cookies = Some(native_state.clone());
+        }
         // ~keep The browser tier follows redirects inside Chrome, so it gets the hops this
         // ~keep chain has left rather than the whole limit.
         hop_engine.config.max_redirects = max_redirects.saturating_sub(chain.redirect_count);

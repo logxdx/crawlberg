@@ -1068,3 +1068,20 @@ async fn an_interaction_reads_the_document_through_the_configured_decoder() {
         interaction.final_html
     );
 }
+
+
+#[test]
+fn should_omit_strict_cookies_from_native_http_headers_after_cross_site_navigation() {
+    let mut state = super::NativeRenderState::new(&[]);
+    let target = url::Url::parse("https://target.example/").expect("target URL");
+    state.store_response_cookie("strict=1; Path=/; Secure; SameSite=Strict", &target);
+    state.store_response_cookie("lax=1; Path=/; Secure; SameSite=Lax", &target);
+    state.set_site_for_cookies("https://other.example/");
+    let cross_site_navigation = state.clone();
+    assert_eq!(cross_site_navigation.request_cookie_header(&target), "lax=1");
+    state.set_site_for_cookies("https://target.example/start");
+    let mut cookies = state.request_cookie_header(&target).split("; ").map(str::to_owned).collect::<Vec<_>>();
+    cookies.sort();
+    assert_eq!(cookies, ["lax=1", "strict=1"]);
+    assert_eq!(cross_site_navigation.request_cookie_header(&target), "lax=1");
+}

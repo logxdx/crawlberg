@@ -164,13 +164,10 @@ impl CrawlCookies {
                 continue;
             };
             let slot = Slot::of(&cookie);
-            if held
-                .cookies
-                .get(&slot)
-                .is_some_and(|(_, current)| invalidates(&cookie, current))
-            {
-                held.cookies.remove(&slot);
+            if held.cookies.get(&slot).is_some_and(|(_, current)| !invalidates(&cookie, current)) {
+                continue;
             }
+            held.cookies.remove(&slot);
             held.invalidated.insert(slot, cookie);
         }
     }
@@ -233,35 +230,19 @@ fn browser_cookie_from_http(url: &url::Url, raw: &str) -> Option<BrowserCookie> 
 /// ~keep An expired parameter removes a retained context's old copy; ordinary crawl cookies
 /// cannot express deletions because their absence does not mean a session cookie was deleted.
 fn invalidated_cookie(url: &url::Url, raw: &str) -> Option<BrowserCookie> {
-    let host = url.host_str()?;
-    let mut parts = raw.split(';');
-    let (name, _) = parts.next()?.split_once('=')?;
-    let name = name.trim();
+    let parsed = cookie_store::Cookie::parse(raw, url).ok()?;
+    let name = parsed.name();
     if name.is_empty() || !accepted_cookie_change(url, name, raw) {
         return None;
     }
     let mut params = CookieParam::new(name, "");
     params.url = Some(url.to_string());
-    let default_path = url
-        .path()
-        .rsplit_once('/')
-        .map(|(parent, _)| parent)
-        .filter(|p| !p.is_empty())
-        .unwrap_or("/");
-    params.path = Some(default_path.to_owned());
+    params.path = Some(String::from(&parsed.path));
     params.expires = Some(TimeSinceEpoch::new(0.0));
-    for part in parts {
-        let Some((key, value)) = part.trim().split_once('=') else {
-            continue;
-        };
-        let value = value.trim();
-        if key.eq_ignore_ascii_case("domain") && !value.trim_start_matches('.').is_empty() {
-            params.domain = crate::net::cookie::validate_cookie_domain(host, value)
-                .ok()?
-                .map(|domain| format!(".{domain}"));
-        } else if key.eq_ignore_ascii_case("path") && value.starts_with('/') {
-            params.path = Some(value.to_owned());
-        }
+    if let cookie_store::CookieDomain::Suffix(domain) = &parsed.domain {
+        params.domain = crate::net::cookie::validate_cookie_domain(url.host_str()?, domain)
+            .ok()?
+            .map(|domain| format!(".{domain}"));
     }
     Some(BrowserCookie { params })
 }
@@ -663,6 +644,37 @@ mod tests {
         crawl.absorb(&deleter, &[]);
 
         assert_eq!(held(&crawl), ["session=2"]);
+    }
+
+    #[test]
+    fn should_bridge_only_the_last_effective_domain_attribute() {
+        let url = url::Url::parse("https://a.example.org/folder/page").expect("test URL");
+        for raw in [
+            "session=1; Domain=evil.test; Domain=example.org",
+            "session=1; Domain = evil.test; DOMAIN = example.org; Domain=",
+        ] {
+            let cookie = browser_cookie_from_http(&url, raw).expect("last domain matches source");
+            assert_eq!(cookie.params.domain.as_deref(), Some(".example.org"));
+            assert_eq!(cookie.params.path.as_deref(), Some("/folder"));
+            assert_eq!(cookie.params.value, "1");
+        }
+        assert!(browser_cookie_from_http(&url, "session=1; Domain=example.org; Domain=evil.test").is_none());
+    }
+
+    #[test]
+    fn should_preserve_secure_cookie_during_rejected_insecure_change_and_http_export() {
+        use reqwest::cookie::CookieStore as _;
+        let crawl = CrawlCookies::default();
+        let mut secure = left("session", "original");
+        secure.params.secure = Some(true);
+        crawl.absorb(&[], &[secure]);
+        for raw in ["session=replaced; Path=/private", "session=; Path=/private; Max-Age=0"] {
+            crawl.absorb_http_response("http://example.com/private/page", &set_cookie(&[raw]));
+            let store = crate::net::cookie::PolicyCookieStore::default();
+            crawl.sync_http_store(&[], &store);
+            let url = url::Url::parse("https://example.com/private/page").expect("test URL");
+            assert_eq!(store.cookies(&url).as_ref().and_then(|header| header.to_str().ok()), Some("session=original"));
+        }
     }
 
     #[test]

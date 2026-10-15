@@ -76,7 +76,10 @@ impl NativeRenderState {
 
     /// The cookies the shared jar sends to a top-level HTTP request for `url`.
     pub fn request_cookie_header(&self, url: &url::Url) -> String {
-        self.cookie_jar.get_cookie_header(url)
+        self.cookie_jar.get_cookie_header_for_request(
+            url,
+            crate::net::cookies::CookieRequestContext::top_level(self.site_for_cookies.as_ref(), true),
+        )
     }
 
     /// ~keep Record the document that initiates the next top-level navigation.
