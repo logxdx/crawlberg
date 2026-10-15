@@ -8751,6 +8751,8 @@ mod race_tests {
     /// bound only decides how long a correct run waits.
     const STOP_BOUND: Duration = Duration::from_secs(1);
 
+    mod external_failure;
+
     #[allow(
         clippy::print_stderr,
         reason = "test-only skip announcement, matching tests/common/mod.rs's convention"
