@@ -53,12 +53,12 @@ fn config(private_pipe: bool) -> BrowserPoolConfig {
     }
 }
 
-fn capture(f: impl FnOnce()) -> Vec<(tracing::Level, String)> {
+fn capture(f: impl FnOnce(&Events)) -> Vec<(tracing::Level, String)> {
     let events = Events(Arc::default());
     // ~keep Retain a second dispatcher so concurrent no-subscriber calls cannot cache Never.
     let _other = tracing::Dispatch::new(tracing::subscriber::NoSubscriber::default());
     let _subscriber = tracing::subscriber::set_default(events.clone());
-    f();
+    f(&events);
     let captured = events.0.lock().expect("events").clone();
     assert!(
         captured
@@ -69,9 +69,17 @@ fn capture(f: impl FnOnce()) -> Vec<(tracing::Level, String)> {
     captured
 }
 
-async fn warm(pool: &BrowserPool) -> std::path::PathBuf {
+fn assert_clean_phase(pool: &BrowserPool, events: &Events, phase: &str) {
+    let captured = events.0.lock().expect("events").clone();
+    assert_no_failures(&captured, &format!("{phase}, pipe={}", pool.config.private_pipe));
+    assert!(pool.is_healthy(), "{phase}: owned browser must stay healthy: {captured:?}");
+}
+
+async fn warm(pool: &BrowserPool, events: &Events) -> std::path::PathBuf {
     pool.warm().await.expect("real Chrome must launch");
+    assert_clean_phase(pool, events, "after pool warm");
     let page = pool.acquire_page().await.expect("real Chrome page");
+    assert_clean_phase(pool, events, "after page acquisition");
     assert_eq!(
         page.page()
             .evaluate("21 * 2")
@@ -81,7 +89,9 @@ async fn warm(pool: &BrowserPool) -> std::path::PathBuf {
             .expect("number"),
         42
     );
+    assert_clean_phase(pool, events, "after page evaluation");
     page.close().await;
+    assert_clean_phase(pool, events, "after page close");
     let profile = pool_profile_dir(pool).await;
     assert!(
         chrome_process_count_for_profile(&profile) > 0,
@@ -101,10 +111,10 @@ fn should_end_owned_browser_drop_and_shutdown_without_failure_logs() {
         #[cfg(unix)]
         (true, true),
     ] {
-        let events = capture(|| {
+        let events = capture(|events| {
             let runtime = runtime();
             let pool = BrowserPool::new(config(private_pipe));
-            let profile = runtime.block_on(warm(&pool));
+            let profile = runtime.block_on(warm(&pool, events));
             if explicit {
                 runtime.block_on(pool.shutdown());
             }
@@ -128,7 +138,7 @@ fn should_end_owned_browser_drop_and_shutdown_without_failure_logs() {
         assert_eq!(
             failures.len(),
             0,
-            "explicit={explicit}, pipe={private_pipe}: clean owned cleanup must not report failures: {failures:?}"
+            "explicit={explicit}, pipe={private_pipe}: clean owned cleanup must not report failures: {events:?}"
         );
     }
 }
@@ -138,7 +148,7 @@ fn assert_no_failures(events: &[(tracing::Level, String)], scenario: &str) {
         .iter()
         .filter(|(level, _)| *level == tracing::Level::ERROR || *level == tracing::Level::WARN)
         .collect();
-    assert_eq!(failures.len(), 0, "{scenario}: {failures:?}");
+    assert_eq!(failures.len(), 0, "{scenario}: {events:?}");
 }
 
 #[test]
@@ -148,10 +158,10 @@ fn should_consume_authoritative_profile_retirement_without_failure_logs_or_secon
         #[cfg(unix)]
         true,
     ] {
-        let events = capture(|| {
+        let events = capture(|events| {
             let runtime = runtime();
             let pool = BrowserPool::new(config(private_pipe));
-            let profile = runtime.block_on(warm(&pool));
+            let profile = runtime.block_on(warm(&pool, events));
             let before = KILL_BROWSER_CALLS_HERE.with(std::cell::Cell::get);
             runtime.block_on(async {
                 let state = pool.state.lock().await.take().expect("owned browser state");
@@ -220,7 +230,7 @@ fn should_end_direct_owned_browser_close_and_kill_without_failure_logs() {
         #[cfg(unix)]
         (true, true),
     ] {
-        let events = capture(|| runtime().block_on(direct_browser_termination(kill, private_pipe)));
+        let events = capture(|_| runtime().block_on(direct_browser_termination(kill, private_pipe)));
         assert_no_failures(&events, &format!("direct owned stop, kill={kill}, pipe={private_pipe}"));
     }
 }
@@ -232,10 +242,10 @@ fn should_report_an_active_owned_browser_transport_failure() {
         #[cfg(unix)]
         true,
     ] {
-        let events = capture(|| {
+        let events = capture(|events| {
             let runtime = runtime();
             let pool = BrowserPool::new(config(private_pipe));
-            let profile = runtime.block_on(warm(&pool));
+            let profile = runtime.block_on(warm(&pool, events));
             runtime.block_on(async {
                 assert_eq!(kill_pool_chrome(&pool).await, profile);
                 tokio::time::timeout(Duration::from_secs(15), async {
@@ -269,10 +279,10 @@ fn should_retire_an_owned_browser_with_a_live_page_without_controller_failure_lo
         #[cfg(unix)]
         true,
     ] {
-        let events = capture(|| {
+        let events = capture(|events| {
             let runtime = runtime();
             let pool = BrowserPool::new(config(private_pipe));
-            let profile = runtime.block_on(warm(&pool));
+            let profile = runtime.block_on(warm(&pool, events));
             runtime.block_on(async {
                 let page = pool.acquire_page().await.expect("live owned page");
                 assert_eq!(
@@ -305,7 +315,7 @@ fn should_retire_an_owned_browser_with_a_live_page_without_controller_failure_lo
 
 #[test]
 fn should_mark_owned_kill_before_family_exit_without_polling_the_later_browser_kill() {
-    let events = capture(|| {
+    let events = capture(|_| {
         runtime().block_on(async {
             let profile = tempfile::tempdir().expect("owned profile");
             let path = profile.path().to_path_buf();

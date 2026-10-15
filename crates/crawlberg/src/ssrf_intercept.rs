@@ -2288,6 +2288,36 @@ fn child_context_retired(registry: &Registry, context: &BrowserContextId) -> boo
     !registry.contexts.contains_key(context) && registry.retired_contexts.contains(context)
 }
 
+#[cfg(test)]
+fn trace_rejected_recursive_arm(
+    shared: &Shared,
+    context: Option<&BrowserContextId>,
+    target: &TargetId,
+    root_waiter: bool,
+    cdp_error_code: Option<i64>,
+) {
+    let registry = lock(&shared.registry);
+    let ownership = match registry.ownership.get(target) {
+        Some(TargetOwnership::Watched(page)) if page.ending.load(Ordering::Acquire) => "ending_watch",
+        Some(TargetOwnership::Watched(_)) => "active_watch",
+        Some(TargetOwnership::PendingContext(_)) => "pending_context",
+        Some(TargetOwnership::PendingShared) => "pending_shared",
+        Some(TargetOwnership::Other) => "other",
+        Some(TargetOwnership::Quarantined) => "quarantined",
+        None => "missing",
+    };
+    tracing::info!(
+        cdp_error_code,
+        context_present = context.is_some(),
+        context_registered = context.is_some_and(|context| registry.contexts.contains_key(context)),
+        context_retired = context.is_some_and(|context| child_context_retired(&registry, context)),
+        root_waiter,
+        ownership,
+        origin = ?shared.origin,
+        "test rejected recursive child-target arm"
+    );
+}
+
 /// Hold every related target at `waitForDebugger` until its authoritative context has selected
 /// an immutable policy and any competing chromiumoxide page auto-attach has been disabled. ~keep
 async fn serve_child_targets(
@@ -2573,6 +2603,14 @@ where
                             structural_parent,
                         } => {
                             if !acknowledged {
+                                #[cfg(test)]
+                                trace_rejected_recursive_arm(
+                                    shared,
+                                    command_context.as_ref(),
+                                    &target,
+                                    root_waiters.get(&target).is_some_and(|waiter| !waiter.is_closed()),
+                                    value["error"]["code"].as_i64(),
+                                );
                                 if let Some(waiter) = root_waiters.remove(&target) {
                                     let _ = waiter.send(Err(format!(
                                         "failed to arm child-target interception for {}: {}",
