@@ -356,14 +356,21 @@ fn should_retry_a_port_only_devtools_record() {
 #[test]
 fn should_retry_an_invalid_devtools_port_record() {
     for port in ["not-a-port", "0", "65536"] {
-        assert_eq!(external_devtools_endpoint(&format!("{port}\n/devtools/browser/browser-id")), None);
+        assert_eq!(
+            external_devtools_endpoint(&format!("{port}\n/devtools/browser/browser-id")),
+            None
+        );
     }
 }
 
 #[test]
 fn should_retry_an_incomplete_or_invalid_devtools_endpoint_path() {
     for path in [
-        "", "/devtools/browser/", "not-a-path", "/devtools/browser/invalid path", "/devtools/browser/browser-id\nextra",
+        "",
+        "/devtools/browser/",
+        "not-a-path",
+        "/devtools/browser/invalid path",
+        "/devtools/browser/browser-id\nextra",
     ] {
         assert_eq!(external_devtools_endpoint(&format!("43123\n{path}")), None);
     }
@@ -372,8 +379,14 @@ fn should_retry_an_incomplete_or_invalid_devtools_endpoint_path() {
 #[test]
 fn should_parse_a_complete_two_line_devtools_port_record() {
     let expected = Some("ws://127.0.0.1:43123/devtools/browser/browser-id".to_owned());
-    assert_eq!(external_devtools_endpoint("43123\n/devtools/browser/browser-id"), expected);
-    assert_eq!(external_devtools_endpoint("43123\n/devtools/browser/browser-id\n"), expected);
+    assert_eq!(
+        external_devtools_endpoint("43123\n/devtools/browser/browser-id"),
+        expected
+    );
+    assert_eq!(
+        external_devtools_endpoint("43123\n/devtools/browser/browser-id\n"),
+        expected
+    );
 }
 
 struct ExternalChrome {
