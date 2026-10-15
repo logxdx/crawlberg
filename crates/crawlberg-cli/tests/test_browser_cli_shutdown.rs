@@ -333,8 +333,12 @@ fn should_finish_five_browser_cli_crawls_without_failure_diagnostics() {
 
 fn external_devtools_endpoint(text: &str) -> Option<String> {
     let mut lines = text.lines();
-    let port = lines.next().expect("DevTools port").parse::<u16>().expect("port number");
-    let path = lines.next().expect("browser endpoint path");
+    let port = lines.next()?.parse::<u16>().ok()?;
+    let path = lines.next()?;
+    let browser_id = path.strip_prefix("/devtools/browser/")?;
+    if port == 0 || browser_id.is_empty() || path.chars().any(char::is_whitespace) || lines.next().is_some() {
+        return None;
+    }
     Some(format!("ws://127.0.0.1:{port}{path}"))
 }
 
@@ -358,7 +362,9 @@ fn should_retry_an_invalid_devtools_port_record() {
 
 #[test]
 fn should_retry_an_incomplete_or_invalid_devtools_endpoint_path() {
-    for path in ["", "/devtools/browser/", "not-a-path", "/devtools/browser/invalid path"] {
+    for path in [
+        "", "/devtools/browser/", "not-a-path", "/devtools/browser/invalid path", "/devtools/browser/browser-id\nextra",
+    ] {
         assert_eq!(external_devtools_endpoint(&format!("43123\n{path}")), None);
     }
 }
