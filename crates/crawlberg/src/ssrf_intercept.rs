@@ -8035,6 +8035,46 @@ mod tests {
         );
     }
 
+    #[test]
+    fn a_delayed_created_event_keeps_a_parked_owned_context_root_open() {
+        let page = watched("ROOT");
+        let shared = shared_with(&page, "OTHER");
+        let context = register_owned_context(&shared, &page);
+        begin_ending(&page);
+        release(&shared, &page, true);
+        let generation = Arc::clone(
+            lock(&shared.registry)
+                .target_generations
+                .get(&page.root)
+                .expect("the parked root has a generation"),
+        );
+        let root_event = target_created_in_context("ROOT", None, &context);
+        let root_close = reconcile_created(&shared, Some(&root_event.target_info));
+        let popup_event = target_created_in_context("POPUP", Some("ROOT"), &context);
+        let popup_close = reconcile_created(&shared, Some(&popup_event.target_info));
+        let registry = lock(&shared.registry);
+
+        assert_eq!(popup_close, Some(TargetId::new("POPUP")), "a handoff popup must close");
+        assert_eq!(root_close, None, "a delayed creation event must keep the parked root open");
+        assert!(
+            registry
+                .target_generations
+                .get(&page.root)
+                .is_some_and(|current| Arc::ptr_eq(current, &generation)),
+            "a delayed creation event must preserve the parked root's generation"
+        );
+        assert!(
+            registry
+                .owner_of_target("ROOT")
+                .is_some_and(|owner| Arc::ptr_eq(&owner, &page) && owner.ending.load(Ordering::Acquire)),
+            "the parked root must retain its ending owner until a new watch takes ownership"
+        );
+        assert!(
+            !registry.others.contains(&page.root),
+            "the parked root must not become another client's unrestricted target"
+        );
+    }
+
     /// A frame target and a popup of another client's page stay that client's: neither is adopted.
     #[test]
     fn a_frame_and_a_popup_of_another_client_s_page_stay_that_client_s() {
