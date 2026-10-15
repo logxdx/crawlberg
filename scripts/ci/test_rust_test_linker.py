@@ -1,4 +1,4 @@
-"""Keep the macOS test-only unwind notice exemption narrower than the warning gate."""
+"""Keep macOS test profile tuning and runner thread limits scoped to their intended commands."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/ci/rust/run-unit-tests.sh"
-NOTICE_FLAG = "-C link-arg=-Wl,-no_warn_eh_frame_too_large"
+CORE_PROFILE = "profile.test.package.crawlberg.opt-level=1"
 BASE_FLAGS = "-D warnings -C link-arg=-undefined -C link-arg=dynamic_lookup"
 CARGO_STUB = r"""#!/usr/bin/env python3
 import json
@@ -25,13 +25,20 @@ with path.open("a") as output:
         "args": sys.argv[1:],
         "rustflags": os.environ.get("RUSTFLAGS", ""),
         "warnings": os.environ.get("CARGO_BUILD_WARNINGS"),
+        "threads": os.environ.get("RUST_TEST_THREADS"),
     }) + "\n")
 sys.exit(37 if len(rows) + 1 == int(os.environ["FAIL_CALL"]) else 0)
 """
 
 
 class RustTestLinkerTests(unittest.TestCase):
-    def run_case(self, platform: str, fail_call: int = 0) -> tuple[subprocess.CompletedProcess[str], list[dict]]:
+    def run_case(
+        self,
+        platform: str,
+        fail_call: int = 0,
+        thread_optin: str | None = None,
+        inherited_threads: str | None = None,
+    ) -> tuple[subprocess.CompletedProcess[str], list[dict]]:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             cargo = root / "cargo"
@@ -50,6 +57,10 @@ class RustTestLinkerTests(unittest.TestCase):
                 RUSTFLAGS=BASE_FLAGS,
                 CARGO_BUILD_WARNINGS="deny",
             )
+            for name, value in (("CRAWLBERG_TEST_THREADS", thread_optin), ("RUST_TEST_THREADS", inherited_threads)):
+                env.pop(name, None)
+                if value is not None:
+                    env[name] = value
             result = subprocess.run(["bash", str(SCRIPT)], env=env, capture_output=True, text=True, check=False)
             rows = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
             assert len(rows) == 3, result.stdout + result.stderr
@@ -58,10 +69,12 @@ class RustTestLinkerTests(unittest.TestCase):
             assert rows[2]["args"][:3] == ["test", "-p", "crawlberg-cli"]
             return result, rows
 
-    def test_darwin_core_tests_suppress_only_the_unwind_size_notice(self) -> None:
+    def test_darwin_optimizes_only_the_core_test_package_without_suppressing_warnings(self) -> None:
         result, rows = self.run_case("Darwin")
         assert result.returncode == 0, result.stdout + result.stderr
-        assert [row["rustflags"] for row in rows] == [f"{BASE_FLAGS} {NOTICE_FLAG}", BASE_FLAGS, BASE_FLAGS]
+        assert rows[0]["args"][-2:] == ["--config", CORE_PROFILE]
+        assert all("--config" not in row["args"] for row in rows[1:])
+        assert [row["rustflags"] for row in rows] == [BASE_FLAGS, BASE_FLAGS, BASE_FLAGS]
         assert [row["warnings"] for row in rows] == ["deny", "deny", "deny"]
 
     def test_linux_keeps_all_compiler_and_linker_warning_flags(self) -> None:
@@ -69,6 +82,22 @@ class RustTestLinkerTests(unittest.TestCase):
         assert result.returncode == 0, result.stdout + result.stderr
         assert [row["rustflags"] for row in rows] == [BASE_FLAGS, BASE_FLAGS, BASE_FLAGS]
         assert [row["warnings"] for row in rows] == ["deny", "deny", "deny"]
+        assert all("--config" not in row["args"] for row in rows)
+
+    def test_thread_optin_reaches_core_and_cli_without_changing_workspace_threads(self) -> None:
+        for platform in ("Darwin", "Linux"):
+            with self.subTest(platform=platform):
+                result, rows = self.run_case(platform, thread_optin="1", inherited_threads="7")
+                assert result.returncode == 0, result.stdout + result.stderr
+                assert [row["threads"] for row in rows] == ["1", "7", "1"]
+
+    def test_unset_or_empty_thread_optin_preserves_inherited_or_default_threads(self) -> None:
+        for optin in (None, ""):
+            for inherited in (None, "7"):
+                with self.subTest(optin=optin, inherited=inherited):
+                    result, rows = self.run_case("Darwin", thread_optin=optin, inherited_threads=inherited)
+                    assert result.returncode == 0, result.stdout + result.stderr
+                    assert [row["threads"] for row in rows] == [inherited, inherited, inherited]
 
     def test_any_cargo_failure_still_fails_after_all_three_invocations(self) -> None:
         for platform in ("Darwin", "Linux"):
