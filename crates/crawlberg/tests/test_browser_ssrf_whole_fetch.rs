@@ -374,22 +374,110 @@ async fn cancelled_pooled_scrape_leaks_nothing() {
     pool.shutdown().await;
 }
 
+struct ParkedFloodGate {
+    endpoint: String,
+    ready: tokio::sync::oneshot::Receiver<()>,
+    start: Option<tokio::sync::oneshot::Sender<()>>,
+    refused: tokio::sync::oneshot::Receiver<()>,
+    task: tokio::task::JoinHandle<()>,
+}
+
+impl ParkedFloodGate {
+    async fn new() -> Self {
+        use futures::StreamExt as _;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("parked flood control listener");
+        let endpoint = format!("ws://localhost:{}/", listener.local_addr().expect("control address").port());
+        let (connected, ready) = tokio::sync::oneshot::channel();
+        let (start, triggered) = tokio::sync::oneshot::channel();
+        let (acknowledged, refused) = tokio::sync::oneshot::channel();
+        let task = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("parked page control connection");
+            let mut socket = async_tungstenite::tokio::accept_async(stream)
+                .await
+                .expect("parked page control handshake");
+            connected.send(()).expect("control readiness receiver");
+            triggered.await.expect("start the parked flood");
+            socket
+                .send(async_tungstenite::tungstenite::Message::Text("start".into()))
+                .await
+                .expect("trigger the parked page");
+            while let Some(message) = socket.next().await {
+                if let async_tungstenite::tungstenite::Message::Text(text) = message.expect("flood control frame") {
+                    assert_eq!(text.as_str(), "refused", "the flood must attempt a denied fetch");
+                    acknowledged.send(()).expect("flood acknowledgment receiver");
+                    return;
+                }
+            }
+            panic!("parked page disconnected before acknowledging a rejected flood request");
+        });
+        Self { endpoint, ready, start: Some(start), refused, task }
+    }
+
+    async fn start(&mut self) {
+        let bound = Duration::from_secs(10);
+        tokio::time::timeout(bound, &mut self.ready)
+            .await
+            .expect("the parked page must connect its control socket")
+            .expect("control readiness sender");
+        self.start.take().expect("one flood trigger").send(()).expect("flood start receiver");
+        tokio::time::timeout(bound, &mut self.refused)
+            .await
+            .expect("the parked page must actually issue a rejected flood request")
+            .expect("flood acknowledgment sender");
+    }
+}
+
+impl Drop for ParkedFloodGate {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
+fn parked_fetch_flood(target: &str, control: &str) -> String {
+    format!(
+        r#"<p>start</p><script>
+        const control = new WebSocket({control:?});
+        let acknowledged = false;
+        control.onmessage = () => {{
+            const flood = () => {{
+                for (let k = 0; k < 20; k++) {{
+                    fetch({target:?} + '?' + Math.random(), {{mode: 'no-cors'}}).catch(() => {{
+                        if (!acknowledged) {{ acknowledged = true; control.send('refused'); }}
+                    }});
+                }}
+            }};
+            setInterval(flood, 1);
+            flood();
+        }};
+        </script>"#
+    )
+}
+
 /// A page parked for session reuse keeps running its scripts. When the pool shuts down while
 /// such a page still floods a denied address, nothing it sent reaches that address.
 #[tokio::test]
 async fn pool_shutdown_with_a_parked_flooding_page_leaks_nothing() {
     let test_name = "pool_shutdown_with_a_parked_flooding_page_leaks_nothing";
     let denied = denied_server().await;
-    let (_site, seed) = seed_site(&fetch_flood(&denied_url(&denied))).await;
+    let mut gate = ParkedFloodGate::new().await;
+    let body = parked_fetch_flood(&denied_url(&denied), &gate.endpoint);
+    let (_site, seed) = seed_site(&body).await;
     let pool = BrowserPool::new(BrowserPoolConfig::default());
+    let sessions = Arc::new(BrowserSessionPool::new());
     let mut config = pooled_config(&pool);
     config.browser.session_affinity = true;
-    config.browser_session_pool = Some(Arc::new(BrowserSessionPool::new()));
+    config.browser_session_pool = Some(Arc::clone(&sessions));
     if run(test_name, &seed, config).await.is_none() {
         pool.shutdown().await;
         return;
     }
-    tokio::time::sleep(Duration::from_millis(300)).await;
+    // ~keep Start only once the page is parked: flooding during document collection tests a
+    // ~keep different phase and can starve extraction before shutdown is ever exercised.
+    assert_eq!(sessions.size().await, 1, "the flood must run on a parked session");
+    gate.start().await;
     pool.shutdown().await;
     assert_refused(test_name, &denied).await;
 }
