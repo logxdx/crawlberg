@@ -1958,6 +1958,34 @@ jobs:
           fi
           echo "Publishing ${COUNT} crate(s): ${RESOLVED_CRATES}"
 
+      # ~keep The excluded browser fork has its own version and must reach the index before core packaging.
+      - name: Read the browser fork version
+        id: fork_metadata
+        shell: bash
+        run: |
+          python3 - <<'PYTHON'
+          import os
+          import tomllib
+          from pathlib import Path
+
+          package = tomllib.loads(Path('vendor/crawlberg-chromiumoxide/Cargo.toml').read_text()).get('package', {})
+          version = package.get('version')
+          if package.get('name') != 'crawlberg-chromiumoxide' or not isinstance(version, str) or not version.strip():
+              raise SystemExit('Missing or unexpected browser fork package identity or version')
+          if any(character.isspace() for character in version):
+              raise SystemExit('Browser fork version must not contain whitespace')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'version={version}\n')
+          PYTHON
+
+      - name: Publish the browser fork before core crates
+        uses: xberg-io/actions/publish-crates@v1
+        with:
+          crates: crawlberg-chromiumoxide
+          manifest-path: vendor/crawlberg-chromiumoxide/Cargo.toml
+          version: ${{ steps.fork_metadata.outputs.version }}
+          dry-run: ${{ needs.prepare.outputs.dry_run }}
+
       - uses: xberg-io/actions/publish-crates@v1
         with:
           crates: ${{ env.CRATES_TO_PUBLISH }}
