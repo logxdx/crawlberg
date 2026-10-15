@@ -4,13 +4,18 @@ use futures::SinkExt as _;
 use std::collections::HashSet;
 use std::sync::atomic::AtomicBool;
 
-async fn reject_service_worker_arm_relay(upstream: String, rejected: Arc<AtomicBool>) -> String {
+async fn reject_service_worker_arm_relay(
+    upstream: String,
+    rejected: Arc<AtomicBool>,
+    release_primary: tokio::sync::watch::Receiver<bool>,
+) -> String {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("relay listener");
     let endpoint = format!("ws://{}", listener.local_addr().expect("relay address"));
     tokio::spawn(async move {
         while let Ok((stream, _)) = listener.accept().await {
             let upstream = upstream.clone();
             let rejected = Arc::clone(&rejected);
+            let mut release_primary = release_primary.clone();
             tokio::spawn(async move {
                 let client = async_tungstenite::tokio::accept_async(stream).await.expect("relay handshake");
                 let (chrome, _) = async_tungstenite::tokio::connect_async(upstream).await.expect("relay upstream");
@@ -18,12 +23,20 @@ async fn reject_service_worker_arm_relay(upstream: String, rejected: Arc<AtomicB
                 let (mut to_chrome, mut from_chrome) = futures::StreamExt::split(chrome);
                 let sessions = Arc::new(Mutex::new(HashSet::<String>::new()));
                 let pending = Arc::new(Mutex::new(HashSet::<u64>::new()));
+                let primary = Arc::new(AtomicBool::new(false));
+                let primary_forward = Arc::clone(&primary);
                 let workers = Arc::clone(&sessions);
                 let calls = Arc::clone(&pending);
                 let forward = async move {
                     while let Some(Ok(message)) = futures::StreamExt::next(&mut from_client).await {
+                        if matches!(message, Message::Close(_)) && primary_forward.load(Ordering::Acquire) {
+                            break;
+                        }
                         if let Message::Text(text) = &message {
                             let value: serde_json::Value = serde_json::from_str(text).expect("command JSON");
+                            if value["method"] == "Target.createBrowserContext" {
+                                primary_forward.store(true, Ordering::Release);
+                            }
                             if value["method"] == "Target.setAutoAttach"
                                 && value["sessionId"].as_str().is_some_and(|id| lock(&workers).contains(id))
                                 && let Some(id) = value["id"].as_u64() {
@@ -31,6 +44,12 @@ async fn reject_service_worker_arm_relay(upstream: String, rejected: Arc<AtomicB
                             }
                         }
                         if to_chrome.send(message).await.is_err() { break }
+                    }
+                    // ~keep Model a half-open external primary transport: the proxy cannot see
+                    // ~keep its client any more, while Chrome has not observed the primary EOF.
+                    // ~keep Release is controlled by the test, never a wall-clock grace period.
+                    if primary_forward.load(Ordering::Acquire) {
+                        let _ = release_primary.wait_for(|released| *released).await;
                     }
                 };
                 let backward = async move {
@@ -49,11 +68,11 @@ async fn reject_service_worker_arm_relay(upstream: String, rejected: Arc<AtomicB
                             rejected.store(true, Ordering::Release);
                         }
                     }
-                    if to_client.send(message).await.is_err() { break }
+                    if to_client.send(message).await.is_err() && !primary.load(Ordering::Acquire) { break }
                 }
                 };
-                // ~keep Both halves must drop on either EOF: keeping the upstream reader alive
-                // ~keep would hide the very debugger-detach leak this relay must reproduce.
+                // ~keep A child EOF drops BOTH upstream halves immediately. Only the explicitly
+                // ~keep identified primary connection models delayed transport cleanup.
                 tokio::select! {
                     () = forward => {}
                     () = backward => {}
@@ -123,7 +142,10 @@ async fn a_held_service_worker_never_reaches_a_denied_listener_after_external_co
     connections.store(0, Ordering::SeqCst);
     bytes.store(0, Ordering::SeqCst);
     let rejected = Arc::new(AtomicBool::new(false));
-    let endpoint = reject_service_worker_arm_relay(owner.websocket_address().clone(), Arc::clone(&rejected)).await;
+    let (release_primary, held_primary) = tokio::sync::watch::channel(false);
+    let endpoint = reject_service_worker_arm_relay(
+        owner.websocket_address().clone(), Arc::clone(&rejected), held_primary,
+    ).await;
     let (browser, handler) = crate::browser_pool::connect_endpoint(&endpoint).await.expect("external connection");
     let handler = crate::browser_pool::spawn_handler(handler);
     let browser = Arc::new(browser);
@@ -137,6 +159,9 @@ async fn a_held_service_worker_never_reaches_a_denied_listener_after_external_co
     let _ = page.evaluate("navigator.serviceWorker.register('/service.js').catch(() => 0); 1").await;
     tokio::time::timeout(Duration::from_secs(15), firewall.handle().failed()).await.expect("injected failure");
     assert!(rejected.load(Ordering::Acquire), "the relay must actually reject the paused service worker arm");
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    assert_eq!(connections.load(Ordering::SeqCst), 0, "the held service worker must never connect");
+    assert_eq!(bytes.load(Ordering::SeqCst), 0, "the denied listener must receive no request bytes");
     tokio::time::timeout(Duration::from_secs(10), async {
         loop {
             let params: GetTargetsParams = serde_json::from_value(serde_json::json!({"filter": [{}]}))
@@ -153,6 +178,7 @@ async fn a_held_service_worker_never_reaches_a_denied_listener_after_external_co
     assert_eq!(survived, 42);
     assert_eq!(connections.load(Ordering::SeqCst), 0, "the held service worker must never connect");
     assert_eq!(bytes.load(Ordering::SeqCst), 0, "the denied listener must receive no request bytes");
+    release_primary.send(true).expect("release primary relay transport");
     drop(watch);
     firewall.stop().await;
     drop(page);
