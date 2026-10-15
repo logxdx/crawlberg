@@ -1080,6 +1080,8 @@ jobs:
           cache-key-prefix: publish-go-${{ matrix.platform }}
 
       - uses: xberg-io/actions/build-go-ffi@v1
+        env:
+          CARGO_TERM_COLOR: never
         with:
           target: ${{ matrix.target }}
           crate-name: crawlberg-ffi
@@ -1141,6 +1143,8 @@ jobs:
           cache-key-prefix: publish-c-ffi-${{ matrix.platform }}
 
       - uses: xberg-io/actions/build-rust-ffi@v1
+        env:
+          CARGO_TERM_COLOR: never
         with:
           crate-name: crawlberg-ffi
           target: ${{ matrix.target }}
