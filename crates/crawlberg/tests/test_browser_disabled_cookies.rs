@@ -41,7 +41,9 @@ async fn should_not_store_redirect_cookies_when_browser_cookies_are_disabled() {
     let cookies = requests
         .iter()
         .filter(|request| request.url.path() == "/landing")
-        .map(|request| request.headers.get("cookie").map(|value| value.to_str().expect("cookie header")))
+        .map(|request| request.headers.get("cookie")
+            .map(|value| value.to_str().expect("cookie header"))
+            .filter(|value| !value.trim().is_empty()))
         .collect::<Vec<_>>();
     assert_eq!(cookies, [None, Some("hop=first")]);
 }

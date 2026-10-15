@@ -4177,10 +4177,7 @@ async fn ssrf_verdict_for_browser(
 /// ~keep again and gets its own decision.
 fn headers_with_seed_host_headers(config: &CrawlConfig, url: &url::Url, headers: &Headers) -> Option<Vec<HeaderEntry>> {
     let added = seed_host_headers(config, url);
-    let has_cookie = headers.inner().as_object().is_some_and(|headers| {
-        headers.keys().any(|name| name.eq_ignore_ascii_case("cookie"))
-    });
-    if added.is_empty() && (config.cookies_enabled || !has_cookie) {
+    if added.is_empty() && config.cookies_enabled {
         return None;
     }
     let mut entries: Vec<HeaderEntry> = headers
@@ -4188,13 +4185,17 @@ fn headers_with_seed_host_headers(config: &CrawlConfig, url: &url::Url, headers:
         .as_object()
         .into_iter()
         .flatten()
-        // ~keep Chrome has already processed redirect Set-Cookie before Fetch's response pause;
-        // ~keep suppress its Cookie header at every request pause, retaining explicit caller headers.
+        // ~keep Omission is not a Cookie override: Chrome's network stack adds stored cookies
+        // ~keep afterward. Disabled cookies require an explicit empty Cookie header below.
         .filter(|(existing, _)| config.cookies_enabled || !existing.eq_ignore_ascii_case("cookie"))
         .filter(|(existing, _)| !added.iter().any(|(name, _)| existing.eq_ignore_ascii_case(name)))
         .filter_map(|(existing, value)| value.as_str().map(|value| HeaderEntry::new(existing.clone(), value)))
         .collect();
+    let explicit_cookie = added.iter().any(|(name, _)| name.eq_ignore_ascii_case("cookie"));
     entries.extend(added.into_iter().map(|(name, value)| HeaderEntry::new(name, value)));
+    if !config.cookies_enabled && !explicit_cookie {
+        entries.push(HeaderEntry::new("Cookie", ""));
+    }
     Some(entries)
 }
 
@@ -8670,7 +8671,7 @@ mod tests {
         let mut config = CrawlConfig::default();
         let entries = headers_with_seed_host_headers(&config, &seed, &headers).expect("cookie suppression");
         let pairs = entries.iter().map(|entry| (entry.name.as_str(), entry.value.as_str())).collect::<Vec<_>>();
-        assert_eq!(pairs, [("Accept", "text/html")]);
+        assert_eq!(pairs, [("Accept", "text/html"), ("Cookie", "")]);
         config.credential_scope = crate::net::CredentialScope::for_seed(&seed, None);
         config.custom_headers.insert("Cookie".to_owned(), "operator=1".to_owned());
         let entries = headers_with_seed_host_headers(&config, &seed, &headers).expect("explicit header");
@@ -8679,7 +8680,14 @@ mod tests {
         assert_eq!(cookies, ["operator=1"]);
         let other = url::Url::parse("https://other.example/").expect("other URL");
         let entries = headers_with_seed_host_headers(&config, &other, &headers).expect("other cookie suppressed");
-        assert!(entries.iter().all(|entry| !entry.name.eq_ignore_ascii_case("cookie")));
+        let cookies = entries.iter().filter(|entry| entry.name.eq_ignore_ascii_case("cookie"))
+            .map(|entry| entry.value.as_str()).collect::<Vec<_>>();
+        assert_eq!(cookies, [""]);
+        let empty = Headers::new(serde_json::json!({}));
+        let entries = headers_with_seed_host_headers(&CrawlConfig::default(), &other, &empty)
+            .expect("disabled cookies always override the request");
+        assert_eq!(entries.len(), 1);
+        assert_eq!((entries[0].name.as_str(), entries[0].value.as_str()), ("Cookie", ""));
     }
 
     /// The interception outcome keeps each main-frame response's headers; its `Debug` must hide
