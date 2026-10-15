@@ -27,6 +27,11 @@ TEST_LOG="/tmp/cargo-test-$$.log"
 core_status=0
 echo "=== cargo test -p crawlberg --all-features ==="
 core_test_env=(env RUST_BACKTRACE=full)
+# ~keep Apple ld advises this debug-build-only exemption for the oversized test harness;
+# compact unwind stays enabled and every other linker/compiler warning remains fatal.
+if [ "$(uname -s)" = "Darwin" ]; then
+  core_test_env+=(RUSTFLAGS="${RUSTFLAGS:+$RUSTFLAGS }-C link-arg=-Wl,-no_warn_eh_frame_too_large")
+fi
 # ~keep Constrained ARM runners opt into serial execution because CPU-wide parallelism makes
 # unrelated Chromium lifecycle tests tear down each other's handlers. Other runners stay parallel.
 if [ -n "${CRAWLBERG_TEST_THREADS:-}" ]; then
