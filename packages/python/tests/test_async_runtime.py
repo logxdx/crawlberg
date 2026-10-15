@@ -107,7 +107,7 @@ def _workqueue_threads() -> int:
         return 0
     from urllib import request
 
-    system_proxy_query = getattr(request, "getproxies_macosx_sysconf", None)
+    system_proxy_query: object = vars(request).get("getproxies_macosx_sysconf")
     if not callable(system_proxy_query):
         raise RuntimeError("macOS system proxy query is unavailable")
     # ~keep A missing queue and a contended queue both report ESRCH; initialize before measuring either.
