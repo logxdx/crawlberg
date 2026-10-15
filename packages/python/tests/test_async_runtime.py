@@ -113,7 +113,7 @@ def _workqueue_threads() -> int:
     if not callable(system_proxy_query):
         raise RuntimeError("macOS system proxy query is unavailable")
     # ~keep A missing queue and a contended queue both report ESRCH; initialize before measuring either.
-    cast(Callable[[], object], system_proxy_query)()
+    cast("Callable[[], object]", system_proxy_query)()
     proc_pidworkqueueinfo = 12
     workqueue_info = (ctypes.c_uint32 * 4)()
     libproc = ctypes.CDLL("/usr/lib/libproc.dylib", use_errno=True)
