@@ -163,6 +163,26 @@ class RubyNativePublicationTests(unittest.TestCase):
             "x86_64-linux-musl",
         ]
 
+    def test_repair_uses_workflow_tooling_while_native_sources_remain_at_release_ref(self) -> None:
+        workflow = yaml.safe_load((ROOT / ".github/workflows/publish.yaml").read_text())
+        steps = workflow["jobs"]["ruby-gem"]["steps"]
+        checkouts = [s for s in steps if s.get("uses", "").startswith("actions/checkout@")]
+        assert len(checkouts) == 2, "Release sources and repair packaging tooling need separate pinned checkouts"
+        assert checkouts[0]["with"]["ref"] == "${{ needs.prepare.outputs.checkout_ref }}"
+        assert "path" not in checkouts[0]["with"]
+        assert checkouts[1]["with"] == {
+            "ref": "${{ github.sha }}",
+            "path": ".release-tools",
+            "sparse-checkout": "scripts/publish/package-ruby-native.rb",
+            "sparse-checkout-cone-mode": "false",
+            "persist-credentials": "false",
+        }
+        packager = next(s for s in steps if "package-ruby-native.rb" in s.get("run", ""))
+        assert steps.index(checkouts[0]) < steps.index(checkouts[1]) < steps.index(packager)
+        assert packager["run"] == (
+            'ruby .release-tools/scripts/publish/package-ruby-native.rb packages/ruby "$EXPECTED_PLATFORM" "$VERSION"'
+        )
+
     def test_each_builder_packages_native_payload_and_rejects_empty_upload(self) -> None:
         workflow = yaml.safe_load((ROOT / ".github/workflows/publish.yaml").read_text())
         job = workflow["jobs"]["ruby-gem"]

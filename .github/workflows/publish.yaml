@@ -804,6 +804,15 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
+      - name: Checkout pinned Ruby release packaging tooling
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .release-tools
+          sparse-checkout: scripts/publish/package-ruby-native.rb
+          sparse-checkout-cone-mode: "false"
+          persist-credentials: "false"
+
       - name: Free disk space
         if: runner.os == 'Linux'
         uses: xberg-io/actions/free-disk-space-linux@v1
@@ -839,7 +848,7 @@ jobs:
         env:
           EXPECTED_PLATFORM: ${{ matrix.platform }}
           VERSION: ${{ needs.prepare.outputs.gem_version }}
-        run: ruby scripts/publish/package-ruby-native.rb packages/ruby "$EXPECTED_PLATFORM" "$VERSION"
+        run: ruby .release-tools/scripts/publish/package-ruby-native.rb packages/ruby "$EXPECTED_PLATFORM" "$VERSION"
 
       - name: Drop source gem on non-canonical builders
         if: ${{ matrix.label != 'linux' }}
