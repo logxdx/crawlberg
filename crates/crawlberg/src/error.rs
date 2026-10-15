@@ -659,6 +659,7 @@ fn is_body_data_loss(e: &reqwest::Error, chain: &str) -> bool {
 
 /// Why a browser fetch failed when the browser's CDP connection closed under it. A crawl reports
 /// a page lost this way as its own error: the loss is the browser's, not the page's. ~keep
+#[cfg(any(not(target_arch = "wasm32"), feature = "browser"))]
 #[derive(Debug, Error)]
 #[error("the browser's CDP connection closed")]
 pub(crate) struct BrowserConnectionClosed {
@@ -666,6 +667,7 @@ pub(crate) struct BrowserConnectionClosed {
     pub(crate) source: Option<ErrorSource>,
 }
 
+#[cfg(any(not(target_arch = "wasm32"), feature = "browser"))]
 impl CrawlError {
     /// Whether this is a browser error whose cause is [`BrowserConnectionClosed`].
     pub(crate) fn browser_connection_closed(&self) -> bool {
