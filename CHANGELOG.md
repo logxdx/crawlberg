@@ -142,6 +142,7 @@ All notable changes to crawlberg are documented here.
   matching PyO3 async-runtime and Flutter Rust Bridge versions until compatible replacements exist.
 - Align the Android package and CI on Gradle 9.8.1.
 - Build native artifacts with Rust 1.99 to fix malformed macOS libraries after debug stripping.
+  The full and CLI Docker images use the same compiler.
 
 - A batch admits its URLs as slots free up: the first fetch of a large batch starts after the
   first admission, not after every URL is admitted and queued. The scheduling of host waits
