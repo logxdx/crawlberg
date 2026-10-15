@@ -251,6 +251,9 @@ async fn browser_fetch_once(
                 chromiumoxide_fetch(url, config, prior_cookies, browsers.pool, want_screenshot, deadline).await?;
             if let (Some(crawl_cookies), Some(given)) = (crawl_cookies, &given) {
                 crawl_cookies.absorb(given, &page.cookies);
+                if let Some(store) = &config.cookie_store {
+                    crawl_cookies.sync_http_store(given, store);
+                }
             }
             page
         }

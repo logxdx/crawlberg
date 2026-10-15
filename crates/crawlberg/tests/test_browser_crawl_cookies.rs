@@ -619,7 +619,7 @@ async fn last_page_cookies_after_an_http_hop(test_name: &str, hop_cookie: &str) 
         cookies_sent_by(&site, "/hop", true).await.is_empty(),
         "the hop must be fetched over HTTP only"
     );
-    assert_eq!(cookies_sent_by(&site, "/hop", false).await.len(), 1);
+    assert_eq!(cookies_sent_by(&site, "/hop", false).await, [["c=1", "keep=1"]]);
     let sent = cookies_sent_by(&site, "/last", true).await;
     let [sent] = sent.as_slice() else {
         panic!("the browser must fetch the last page once: {sent:?}");
@@ -648,14 +648,7 @@ async fn a_browser_page_does_not_get_the_old_value_of_a_cookie_that_an_http_hop_
         return;
     };
 
-    assert!(
-        !sent.contains(&"c=1".to_owned()),
-        "the old value must not come back: {sent:?}"
-    );
-    assert!(
-        sent.contains(&"keep=1".to_owned()),
-        "an untouched cookie stays: {sent:?}"
-    );
+    assert_eq!(sent, ["c=2", "keep=1"], "the new HTTP value must reach the browser");
 }
 
 /// A page that started with the old cookie still loads when a page fetched over HTTP deletes
@@ -875,4 +868,26 @@ async fn a_browser_page_does_not_get_a_cookie_that_a_bypass_response_deleted() {
         "the browser must not fetch the page the provider fetched"
     );
     assert_eq!(cookies_sent_by(&site, "/last", true).await, [["keep=1"]]);
+}
+
+
+#[tokio::test]
+async fn should_send_an_http_redirect_cookie_to_the_browser_in_automatic_mode() {
+    let test_name = "should_send_an_http_redirect_cookie_to_the_browser_in_automatic_mode";
+    let site = MockServer::start().await;
+    route(
+        &site,
+        "/start",
+        ResponseTemplate::new(302)
+            .append_header("location", "/last")
+            .append_header("set-cookie", "http=1; Path=/; HttpOnly"),
+    )
+    .await;
+    browser_only_route(&site, "/last", html("last")).await;
+    let engine = create_engine(Some(config(BrowserMode::Auto, true))).expect("engine");
+    let Some(result) = pages(test_name, crawl(&engine, &format!("{}/start", site.uri())).await) else {
+        return;
+    };
+    assert_eq!(result.len(), 1);
+    assert_eq!(cookies_sent_by(&site, "/last", true).await, [["http=1"]]);
 }

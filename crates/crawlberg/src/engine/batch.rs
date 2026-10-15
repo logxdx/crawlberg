@@ -42,6 +42,14 @@ impl CrawlEngine {
     /// Every entry point that invokes `crawl_with_sender` must route through this helper.
     pub(super) fn for_one_crawl(&self) -> Self {
         let engine = self.with_isolated_frontier();
+        #[cfg(feature = "browser")]
+        let engine = {
+            let mut engine = engine;
+            if self.config.cookies_enabled {
+                engine.config.cookie_store = Some(Default::default());
+            }
+            engine
+        };
         #[cfg(all(not(target_arch = "wasm32"), feature = "browser-native"))]
         let engine = Self {
             native_cookies: self.config.cookies_enabled.then(|| {

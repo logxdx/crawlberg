@@ -154,7 +154,7 @@ impl CrawlEngine {
                         .into_iter()
                         .find(|url| url::Url::parse(url).is_ok())
                         .unwrap_or(url);
-                    crawl_cookies.forget_set_without_browser(landed, &bypass_resp.headers);
+                    crawl_cookies.absorb_http_response(landed, &bypass_resp.headers);
                 }
                 // ~keep A custom bypass provider is a user plugin outside the rotation layer; it does
                 // ~keep not report which agent it sent, if any, so `sent_user_agent` stays unset.

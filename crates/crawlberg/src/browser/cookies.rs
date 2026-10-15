@@ -121,6 +121,39 @@ impl CrawlCookies {
         }
     }
 
+    /// Export current browser cookies and page deletions to the crawl's HTTP jar.
+    pub(crate) fn sync_http_store(&self, given: &[BrowserCookie], store: &crate::net::cookie::PolicyCookieStore) {
+        let held = self.lock();
+        for (_, cookie) in held.cookies.values() {
+            store_browser_cookie(store, cookie, false);
+        }
+        for before in given {
+            if !held.cookies.contains_key(&Slot::of(before)) {
+                store_browser_cookie(store, before, true);
+            }
+        }
+        for cookie in held.invalidated.values() {
+            store_browser_cookie(store, cookie, true);
+        }
+    }
+
+    /// Store HTTP response cookies for the next browser page, including deletion tombstones.
+    pub(crate) fn absorb_http_response(&self, response_url: &str, headers: &HashMap<String, Vec<String>>) {
+        self.forget_set_without_browser(response_url, headers);
+        let Ok(url) = url::Url::parse(response_url) else { return };
+        let Some(set) = headers.get("set-cookie") else { return };
+        let mut held = self.lock();
+        for raw in set {
+            let Some(cookie) = browser_cookie_from_http(&url, raw) else { continue };
+            let slot = Slot::of(&cookie);
+            if held.cookies.get(&slot).is_some_and(|(_, current)| !invalidates(&cookie, current)) {
+                continue;
+            }
+            held.invalidated.remove(&slot);
+            held.put(slot, cookie);
+        }
+    }
+
     /// Invalidate exactly the cookie slots changed by an HTTP response. ~keep
     pub(crate) fn forget_set_without_browser(&self, response_url: &str, headers: &HashMap<String, Vec<String>>) {
         let Ok(url) = url::Url::parse(response_url) else { return };
@@ -145,6 +178,56 @@ impl CrawlCookies {
     fn lock(&self) -> MutexGuard<'_, Held> {
         self.held.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
     }
+}
+
+fn store_browser_cookie(store: &crate::net::cookie::PolicyCookieStore, cookie: &BrowserCookie, deleted: bool) {
+    use reqwest::cookie::CookieStore as _;
+    let params = &cookie.params;
+    // ~keep HTTP has no top-level partition context; never widen a partitioned cookie.
+    if params.partition_key.is_some() {
+        return;
+    }
+    let domain = params.domain.as_deref().unwrap_or_default();
+    let source = params.url.clone().unwrap_or_else(|| {
+        format!("{}://{}/", if params.secure == Some(true) { "https" } else { "http" }, domain.trim_start_matches('.'))
+    });
+    let Ok(url) = url::Url::parse(&source) else { return };
+    let mut raw = format!("{}={}; Path={}", params.name, params.value, params.path.as_deref().unwrap_or("/"));
+    if domain.starts_with('.') {
+        raw.push_str(&format!("; Domain={domain}"));
+    }
+    if params.secure == Some(true) { raw.push_str("; Secure"); }
+    if params.http_only == Some(true) { raw.push_str("; HttpOnly"); }
+    if let Some(site) = &params.same_site { raw.push_str(&format!("; SameSite={}", site.as_ref())); }
+    if deleted {
+        raw.push_str("; Max-Age=0");
+    } else if let Some(expiry) = &params.expires {
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|time| time.as_secs_f64()).unwrap_or(0.0);
+        raw.push_str(&format!("; Max-Age={:.0}", (*expiry.inner() - now).floor().max(0.0)));
+    }
+    if let Ok(header) = reqwest::header::HeaderValue::from_str(&raw) {
+        store.set_cookies(&mut std::iter::once(&header), &url);
+    }
+}
+
+fn browser_cookie_from_http(url: &url::Url, raw: &str) -> Option<BrowserCookie> {
+    let parsed = cookie_store::Cookie::parse(raw, url).ok()?;
+    if parsed.expires.is_expired() {
+        return None;
+    }
+    let mut cookie = invalidated_cookie(url, raw)?;
+    cookie.params.value = parsed.value().to_owned();
+    cookie.params.path = Some(String::from(&parsed.path));
+    cookie.params.expires = match &parsed.expires {
+        cookie_store::CookieExpiration::AtUtc(expiry) => Some(TimeSinceEpoch::new(expiry.unix_timestamp() as f64)),
+        cookie_store::CookieExpiration::SessionEnd => None,
+    };
+    cookie.params.secure = parsed.secure();
+    cookie.params.http_only = parsed.http_only();
+    cookie.params.same_site = parsed.same_site().and_then(|site| {
+        serde_json::from_value(serde_json::Value::String(site.to_string())).ok()
+    });
+    Some(cookie)
 }
 
 /// ~keep An expired parameter removes a retained context's old copy; ordinary crawl cookies
@@ -580,6 +663,28 @@ mod tests {
         crawl.absorb(&deleter, &[]);
 
         assert_eq!(held(&crawl), ["session=2"]);
+    }
+
+    #[test]
+    fn should_send_http_cookie_replacements_to_browser_with_storage_attributes() {
+        let crawl = CrawlCookies::default();
+        crawl.absorb_http_response(
+            "https://example.com/private/action",
+            &set_cookie(&["session=2; Path=/private; HttpOnly; Secure; SameSite=Strict; Max-Age=3600"]),
+        );
+        let given = crawl.given();
+        assert_eq!(given.len(), 1);
+        let params = &given[0].params;
+        assert_eq!(params.value, "2");
+        assert_eq!(params.path.as_deref(), Some("/private"));
+        assert_eq!(params.secure, Some(true));
+        assert_eq!(params.http_only, Some(true));
+        assert!(params.expires.as_ref().is_some_and(|expiry| *expiry.inner() > 0.0));
+        crawl.absorb_http_response("https://example.com/private/action", &set_cookie(&["session=; Path=/private; Max-Age=0"]));
+        let given = crawl.given();
+        assert_eq!(given.len(), 1);
+        assert_eq!(given[0].params.value, "");
+        assert_eq!(given[0].params.expires, Some(TimeSinceEpoch::new(0.0)));
     }
 
     fn set_cookie(values: &[&str]) -> HashMap<String, Vec<String>> {
