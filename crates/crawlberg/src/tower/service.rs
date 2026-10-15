@@ -193,6 +193,50 @@ fn content_length_shortfall_error(
     None
 }
 
+#[cfg(feature = "browser-native")]
+fn apply_native_cookies(
+    http_req: reqwest::RequestBuilder,
+    service: &HttpFetchService,
+    req: &CrawlRequest,
+    url: &url::Url,
+) -> reqwest::RequestBuilder {
+    let config = &*service.config;
+    if let Some(cookies) = &service.native_cookies {
+        let explicit = req.headers.keys().any(|name| name.eq_ignore_ascii_case("cookie"))
+            || seed_host_headers(config, url)
+                .iter()
+                .any(|(name, _)| name.eq_ignore_ascii_case("cookie"));
+        if explicit {
+            http_req
+        } else {
+            // ~keep An empty header suppresses the HTTP jar too: a deleted native cookie
+            // ~keep must not be revived by an older HTTP-only copy.
+            http_req.header(reqwest::header::COOKIE, cookies.request_cookie_header(url))
+        }
+    } else {
+        http_req
+    }
+}
+
+#[cfg(any(feature = "browser", feature = "browser-native"))]
+fn absorb_response_cookies(service: &HttpFetchService, url: &url::Url, headers: &HashMap<String, Vec<String>>) {
+    #[cfg(feature = "browser-native")]
+    if let Some(cookies) = &service.native_cookies {
+        for raw in headers.get("set-cookie").into_iter().flatten() {
+            cookies.store_response_cookie(raw, url);
+        }
+    }
+
+    // ~keep The crawl's cookies are the one source a browser page reads, and this is the one place
+    // ~keep a response fetched without the browser arrives. It reports the cookies it set here,
+    // ~keep before its status can turn it into an error, a redirect, a retry or a browser fetch
+    // ~keep of the same address: none of those can read the crawl's cookies first.
+    #[cfg(feature = "browser")]
+    if let Some(crawl_cookies) = service.crawl_cookies.as_deref() {
+        crawl_cookies.absorb_http_response(url.as_str(), headers);
+    }
+}
+
 /// Perform a single HTTP fetch (no retry, no redirect following) with SSRF validation.
 ///
 /// Returns the raw response — including any 3xx — without following redirects.
@@ -218,21 +262,7 @@ async fn do_fetch(service: &HttpFetchService, req: &CrawlRequest) -> Result<Craw
     let client = crate::http::request_client(client, config, &url)?;
     let http_req = apply_headers(client.get(url.to_string()), config, req, &url, &sent_user_agent);
     #[cfg(feature = "browser-native")]
-    let http_req = if let Some(cookies) = &service.native_cookies {
-        let explicit = req.headers.keys().any(|name| name.eq_ignore_ascii_case("cookie"))
-            || seed_host_headers(config, &url)
-                .iter()
-                .any(|(name, _)| name.eq_ignore_ascii_case("cookie"));
-        if explicit {
-            http_req
-        } else {
-            // ~keep An empty header suppresses the HTTP jar too: a deleted native cookie
-            // ~keep must not be revived by an older HTTP-only copy.
-            http_req.header(reqwest::header::COOKIE, cookies.request_cookie_header(&url))
-        }
-    } else {
-        http_req
-    };
+    let http_req = apply_native_cookies(http_req, service, req, &url);
 
     // ~keep reqwest uses Policy::none(); redirect following is explicit and policy-checked by callers.
     let resp = crate::http::send_with_cookies(http_req, config)
@@ -243,21 +273,8 @@ async fn do_fetch(service: &HttpFetchService, req: &CrawlRequest) -> Result<Craw
     let status = resp.status().as_u16();
     let content_type = content_type_of(&resp);
     let headers = crate::http::build_headers_map(resp.headers());
-    #[cfg(feature = "browser-native")]
-    if let Some(cookies) = &service.native_cookies {
-        for raw in headers.get("set-cookie").into_iter().flatten() {
-            cookies.store_response_cookie(raw, &url);
-        }
-    }
-
-    // ~keep The crawl's cookies are the one source a browser page reads, and this is the one place
-    // ~keep a response fetched without the browser arrives. It reports the cookies it set here,
-    // ~keep before its status can turn it into an error, a redirect, a retry or a browser fetch
-    // ~keep of the same address: none of those can read the crawl's cookies first.
-    #[cfg(feature = "browser")]
-    if let Some(crawl_cookies) = service.crawl_cookies.as_deref() {
-        crawl_cookies.absorb_http_response(url.as_str(), &headers);
-    }
+    #[cfg(any(feature = "browser", feature = "browser-native"))]
+    absorb_response_cookies(service, &url, &headers);
 
     // ~keep Return 3xx responses as-is so redirect handling stays caller-owned.
     if is_redirect_status(status) {

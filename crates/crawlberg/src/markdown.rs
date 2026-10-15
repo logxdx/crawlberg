@@ -28,15 +28,20 @@ fn sanitize_document_structure(document: &mut html_to_markdown_rs::types::Docume
     }
 }
 
-/// Perform the actual HTML-to-Markdown conversion (synchronous).
-fn convert_html_to_markdown(
-    html: &str,
-    page_scan: Option<PageScan>,
-    document_url: &Url,
+fn strong_em_symbol(symbol: &str) -> Result<char, ConversionError> {
+    match symbol {
+        "*" => Ok('*'),
+        "_" => Ok('_'),
+        other => Err(ConversionError::ConfigError(format!(
+            "content.strong_em_symbol must be * or _, not {other:?}"
+        ))),
+    }
+}
+
+fn conversion_options(
     config: &ContentConfig,
-) -> Result<MarkdownResult, ConversionError> {
-    let (html, effective_base) = crate::html::sanitize_url_attributes(html, page_scan, document_url);
-    let structure_base = effective_base.as_ref().unwrap_or(document_url);
+    document_url: &Url,
+) -> Result<html_to_markdown_rs::options::ConversionOptions, ConversionError> {
     let preset = html_to_markdown_rs::options::PreprocessingPreset::parse(&config.preprocessing_preset);
 
     let output_format = match config.output_format.as_str() {
@@ -45,7 +50,7 @@ fn convert_html_to_markdown(
         _ => html_to_markdown_rs::options::OutputFormat::Markdown,
     };
 
-    let options = html_to_markdown_rs::options::ConversionOptions {
+    Ok(html_to_markdown_rs::options::ConversionOptions {
         output_format,
         include_document_structure: config.include_document_structure,
         preprocessing: html_to_markdown_rs::options::PreprocessingOptions {
@@ -71,21 +76,25 @@ fn convert_html_to_markdown(
         strip_newlines: config.strip_newlines,
         bullets: config.bullets.clone(),
         list_indent_width: config.list_indent_width,
-        strong_em_symbol: match config.strong_em_symbol.as_str() {
-            "*" => '*',
-            "_" => '_',
-            other => {
-                return Err(ConversionError::ConfigError(format!(
-                    "content.strong_em_symbol must be * or _, not {other:?}"
-                )));
-            }
-        },
+        strong_em_symbol: strong_em_symbol(&config.strong_em_symbol)?,
         compact_tables: config.compact_tables,
         keep_inline_images_in: config.keep_inline_images_in.clone(),
         base_url: Some(document_url.as_str().to_owned()),
         // ~keep Every option crawlberg has no opinion on stays at the library's default on purpose.
         ..Default::default()
-    };
+    })
+}
+
+/// Perform the actual HTML-to-Markdown conversion (synchronous).
+fn convert_html_to_markdown(
+    html: &str,
+    page_scan: Option<PageScan>,
+    document_url: &Url,
+    config: &ContentConfig,
+) -> Result<MarkdownResult, ConversionError> {
+    let (html, effective_base) = crate::html::sanitize_url_attributes(html, page_scan, document_url);
+    let structure_base = effective_base.as_ref().unwrap_or(document_url);
+    let options = conversion_options(config, document_url)?;
 
     let mut result = html_to_markdown_rs::convert(&html, Some(options))?;
     let content = result.content.unwrap_or_default();
