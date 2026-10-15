@@ -564,9 +564,10 @@ mod tests {
     #[allow(unsafe_code)]
     fn exit_through_the_c_runtime() -> ! {
         unsafe extern "C" {
-            safe fn exit(code: std::ffi::c_int) -> !;
+            fn exit(code: std::ffi::c_int) -> !;
         }
-        exit(0)
+        // SAFETY: Only the isolated child reaches this call, and its selected test invokes exit once.
+        unsafe { exit(0) }
     }
 
     /// Read `pipe` on a thread of its own and hand each line over as it arrives. The receiver is

@@ -773,7 +773,7 @@ mod tests {
         /// second defect above from also firing.
         #[test]
         fn comment_close_matches_html5ever_on_short_alphabets() {
-            let alphabet = [b'-', b'!', b'>', b'a', b' ', b'<'];
+            let alphabet = *b"-!>a <";
             let mut total = 0usize;
             let mut mismatches: Vec<(String, bool, bool)> = Vec::new();
             let mut length_breaks: Vec<String> = Vec::new();
@@ -832,7 +832,7 @@ mod tests {
         /// be found, whatever bytes are inside the script.
         #[test]
         fn comment_bytes_inside_script_never_trigger_comment_edit() {
-            let alphabet = [b'-', b'!', b'>', b'a', b' ', b'<'];
+            let alphabet = *b"-!>a <";
             let mut total = 0usize;
             let mut false_positives: Vec<String> = Vec::new();
             let mut hidden_anchor: Vec<String> = Vec::new();
