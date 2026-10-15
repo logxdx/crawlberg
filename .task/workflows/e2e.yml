@@ -22,7 +22,11 @@ tasks:
               exit 1
             fi
             if grep -q "^MOCK_SERVERS=" .mock-server.out && \
-                grep "^MOCK_SERVER_URL=http://127\.0\.0\.1:" .mock-server.out >.mock-server.env; then
+                grep -q "^MOCK_SERVER_URL=http://127\.0\.0\.1:" .mock-server.out; then
+              server_url="$(grep "^MOCK_SERVER_URL=" .mock-server.out)"
+              server_map="$(grep "^MOCK_SERVERS=" .mock-server.out)"
+              printf "MOCK_SERVER_URL=%q\nMOCK_SERVERS=%q\n" \
+                "${server_url#MOCK_SERVER_URL=}" "${server_map#MOCK_SERVERS=}" >.mock-server.env
               trap - EXIT
               cat .mock-server.env
               exit 0
@@ -89,7 +93,7 @@ tasks:
       - task: :elixir:build
       - cmd: |
           eval "$(cat .mock-server.env 2>/dev/null)"
-          export MOCK_SERVER_URL
+          export MOCK_SERVER_URL MOCK_SERVERS
           overall=0
           MOCK_SERVER_URL="$MOCK_SERVER_URL" task rust:e2e:test    || overall=$?
           MOCK_SERVER_URL="$MOCK_SERVER_URL" task python:e2e:test  || overall=$?
