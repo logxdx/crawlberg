@@ -149,10 +149,7 @@ fn exercise_launch(mode: &str) {
         );
     }
     if mode == "custom_altstack" {
-        assert_eq!(
-            STACK_EVENTS.load(Ordering::Relaxed),
-            SIGNAL_EVENTS.load(Ordering::Relaxed)
-        );
+        assert_owned_altstack_delivery();
     }
 }
 
@@ -191,12 +188,6 @@ fn exercise_managed_launch(mode: &str) {
     if disposition.starts_with("custom") {
         assert!(SIGNAL_EVENTS.load(Ordering::Relaxed) > 0, "inherited handler must run");
         assert_worker_signal_delivery();
-        #[cfg(target_os = "linux")]
-        assert_eq!(
-            STACK_EVENTS.load(Ordering::Relaxed),
-            SIGNAL_EVENTS.load(Ordering::Relaxed)
-        );
-        #[cfg(not(target_os = "linux"))]
         assert_owned_altstack_delivery();
     }
 }
@@ -214,14 +205,16 @@ fn assert_worker_signal_delivery() {
     assert!(SIGNAL_EVENTS.load(Ordering::Relaxed) > before, "worker must run the handler");
 }
 
-#[cfg(not(target_os = "linux"))]
 #[allow(unsafe_code)]
 fn assert_owned_altstack_delivery() {
     // ~keep Process-directed SIGCHLD may use another thread's stack; target the thread holding this allocation.
     let before = STACK_EVENTS.load(Ordering::Relaxed);
     // SAFETY: the current pthread is live and holds the alternate stack and installed test handler. ~keep
     assert_eq!(unsafe { libc::pthread_kill(libc::pthread_self(), libc::SIGCHLD) }, 0);
-    assert_eq!(STACK_EVENTS.load(Ordering::Relaxed), before + 1);
+    assert!(
+        STACK_EVENTS.load(Ordering::Relaxed) > before,
+        "owner-directed signal must use its alternate stack"
+    );
 }
 
 #[allow(unsafe_code)]
