@@ -8,12 +8,11 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import AsyncGenerator, Callable, Iterator
+from collections.abc import AsyncGenerator, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from typing import cast
 
 import pytest
 
@@ -106,6 +105,8 @@ def test_should_raise_typed_http_and_connection_errors(local_server: _Server) ->
 def _workqueue_threads() -> int:
     if sys.platform != "darwin":
         return 0
+    from collections.abc import Callable
+    from typing import cast
     from urllib import request
 
     system_proxy_query: object = vars(request).get("getproxies_macosx_sysconf")
