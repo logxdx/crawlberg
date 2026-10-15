@@ -17,8 +17,8 @@ use crate::types::BrowserCookie;
 /// ~keep what ties a popup to its page's policy, and its disposal is what ends the page's pending
 /// ~keep requests (xberg-io/crawlberg#506). So the pages cannot share Chrome's store. Each page
 /// ~keep starts with a copy of these cookies in its own store, and what it changed is recorded
-/// ~keep here when it ends. Chrome still decides which cookie a request gets: every attribute
-/// ~keep travels with the cookie, and nothing here reads one.
+/// ~keep here when it ends. Chrome receives the full cookie attributes; HTTP requests use a
+/// ~keep validated store for the same crawl. Partitioned cookies stay browser-only.
 #[derive(Default)]
 pub(crate) struct CrawlCookies {
     held: Mutex<Held>,
@@ -144,9 +144,15 @@ impl CrawlCookies {
         let Some(set) = headers.get("set-cookie") else { return };
         let mut held = self.lock();
         for raw in set {
-            let Some(cookie) = browser_cookie_from_http(&url, raw) else { continue };
+            let Some(cookie) = browser_cookie_from_http(&url, raw) else {
+                continue;
+            };
             let slot = Slot::of(&cookie);
-            if held.cookies.get(&slot).is_some_and(|(_, current)| !invalidates(&cookie, current)) {
+            if held
+                .cookies
+                .get(&slot)
+                .is_some_and(|(_, current)| !invalidates(&cookie, current))
+            {
                 continue;
             }
             held.invalidated.remove(&slot);
@@ -164,7 +170,11 @@ impl CrawlCookies {
                 continue;
             };
             let slot = Slot::of(&cookie);
-            if held.cookies.get(&slot).is_some_and(|(_, current)| !invalidates(&cookie, current)) {
+            if held
+                .cookies
+                .get(&slot)
+                .is_some_and(|(_, current)| !invalidates(&cookie, current))
+            {
                 continue;
             }
             held.cookies.remove(&slot);
@@ -186,20 +196,38 @@ fn store_browser_cookie(store: &crate::net::cookie::PolicyCookieStore, cookie: &
     }
     let domain = params.domain.as_deref().unwrap_or_default();
     let source = params.url.clone().unwrap_or_else(|| {
-        format!("{}://{}/", if params.secure == Some(true) { "https" } else { "http" }, domain.trim_start_matches('.'))
+        format!(
+            "{}://{}/",
+            if params.secure == Some(true) { "https" } else { "http" },
+            domain.trim_start_matches('.')
+        )
     });
     let Ok(url) = url::Url::parse(&source) else { return };
-    let mut raw = format!("{}={}; Path={}", params.name, params.value, params.path.as_deref().unwrap_or("/"));
+    let mut raw = format!(
+        "{}={}; Path={}",
+        params.name,
+        params.value,
+        params.path.as_deref().unwrap_or("/")
+    );
     if domain.starts_with('.') {
         raw.push_str(&format!("; Domain={domain}"));
     }
-    if params.secure == Some(true) { raw.push_str("; Secure"); }
-    if params.http_only == Some(true) { raw.push_str("; HttpOnly"); }
-    if let Some(site) = &params.same_site { raw.push_str(&format!("; SameSite={}", site.as_ref())); }
+    if params.secure == Some(true) {
+        raw.push_str("; Secure");
+    }
+    if params.http_only == Some(true) {
+        raw.push_str("; HttpOnly");
+    }
+    if let Some(site) = &params.same_site {
+        raw.push_str(&format!("; SameSite={}", site.as_ref()));
+    }
     if deleted {
         raw.push_str("; Max-Age=0");
     } else if let Some(expiry) = &params.expires {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|time| time.as_secs_f64()).unwrap_or(0.0);
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|time| time.as_secs_f64())
+            .unwrap_or(0.0);
         raw.push_str(&format!("; Max-Age={:.0}", (*expiry.inner() - now).floor().max(0.0)));
     }
     if let Ok(header) = reqwest::header::HeaderValue::from_str(&raw) {
@@ -221,9 +249,9 @@ fn browser_cookie_from_http(url: &url::Url, raw: &str) -> Option<BrowserCookie> 
     };
     cookie.params.secure = parsed.secure();
     cookie.params.http_only = parsed.http_only();
-    cookie.params.same_site = parsed.same_site().and_then(|site| {
-        serde_json::from_value(serde_json::Value::String(site.to_string())).ok()
-    });
+    cookie.params.same_site = parsed
+        .same_site()
+        .and_then(|site| serde_json::from_value(serde_json::Value::String(site.to_string())).ok());
     Some(cookie)
 }
 
@@ -662,18 +690,40 @@ mod tests {
     }
 
     #[test]
-    fn should_preserve_secure_cookie_during_rejected_insecure_change_and_http_export() {
+    fn should_preserve_secure_cookie_when_an_insecure_response_updates_the_live_http_store() {
         use reqwest::cookie::CookieStore as _;
         let crawl = CrawlCookies::default();
-        let mut secure = left("session", "original");
-        secure.params.secure = Some(true);
+        let secure = left("session", "original");
         crawl.absorb(&[], &[secure]);
+        let store = crate::net::cookie::PolicyCookieStore::default();
+        crawl.sync_http_store(&[], &store);
+        let https = url::Url::parse("https://example.com/private/page").expect("secure URL");
+        let http = url::Url::parse("http://example.com/private/page").expect("insecure URL");
+        assert_eq!(
+            store
+                .cookies(&https)
+                .and_then(|header| header.to_str().ok().map(str::to_owned)),
+            Some("session=original".to_owned())
+        );
         for raw in ["session=replaced; Path=/private", "session=; Path=/private; Max-Age=0"] {
-            crawl.absorb_http_response("http://example.com/private/page", &set_cookie(&[raw]));
-            let store = crate::net::cookie::PolicyCookieStore::default();
-            crawl.sync_http_store(&[], &store);
-            let url = url::Url::parse("https://example.com/private/page").expect("test URL");
-            assert_eq!(store.cookies(&url).as_ref().and_then(|header| header.to_str().ok()), Some("session=original"));
+            let headers = [
+                reqwest::header::HeaderValue::from_str(raw).expect("response cookie"),
+                reqwest::header::HeaderValue::from_static("unrelated=latest; Path=/private"),
+            ];
+            store.set_cookies(&mut headers.iter(), &http);
+            crawl.absorb_http_response(http.as_str(), &set_cookie(&[raw, "unrelated=latest; Path=/private"]));
+            let header = store
+                .cookies(&https)
+                .expect("the live HTTP jar keeps the protected cookie");
+            let mut cookies = header.to_str().expect("cookie header").split("; ").collect::<Vec<_>>();
+            cookies.sort_unstable();
+            assert_eq!(cookies, ["session=original", "unrelated=latest"], "{raw}");
+            assert_eq!(
+                store
+                    .cookies(&http)
+                    .and_then(|header| header.to_str().ok().map(str::to_owned)),
+                Some("unrelated=latest".to_owned())
+            );
         }
     }
 
@@ -688,7 +738,10 @@ mod tests {
         let store = crate::net::cookie::PolicyCookieStore::default();
         crawl.sync_http_store(&[], &store);
         let url = url::Url::parse("https://example.com/private").expect("test URL");
-        assert_eq!(store.cookies(&url).as_ref().and_then(|value| value.to_str().ok()), Some("plain=1"));
+        assert_eq!(
+            store.cookies(&url).as_ref().and_then(|value| value.to_str().ok()),
+            Some("plain=1")
+        );
         let given = crawl.given();
         crawl.absorb(&given, &[]);
         crawl.sync_http_store(&given, &store);
@@ -711,7 +764,10 @@ mod tests {
         assert_eq!(params.http_only, Some(true));
         assert_eq!(params.same_site.as_ref().map(AsRef::as_ref), Some("Strict"));
         assert!(params.expires.as_ref().is_some_and(|expiry| *expiry.inner() > 0.0));
-        crawl.absorb_http_response("https://example.com/private/action", &set_cookie(&["session=; Path=/private; Max-Age=0"]));
+        crawl.absorb_http_response(
+            "https://example.com/private/action",
+            &set_cookie(&["session=; Path=/private; Max-Age=0"]),
+        );
         let given = crawl.given();
         assert_eq!(given.len(), 1);
         assert_eq!(given[0].params.value, "");

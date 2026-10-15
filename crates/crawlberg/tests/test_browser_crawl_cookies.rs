@@ -870,7 +870,6 @@ async fn a_browser_page_does_not_get_a_cookie_that_a_bypass_response_deleted() {
     assert_eq!(cookies_sent_by(&site, "/last", true).await, [["keep=1"]]);
 }
 
-
 #[tokio::test]
 async fn should_send_an_http_redirect_cookie_to_the_browser_in_automatic_mode() {
     let test_name = "should_send_an_http_redirect_cookie_to_the_browser_in_automatic_mode";
@@ -920,9 +919,12 @@ async fn should_isolate_http_browser_cookie_bridges_between_concurrent_crawls() 
     let results = batch_crawl(&engine, seeds).await.expect("batch crawl");
     assert_eq!(results.results.len(), 2);
     for result in results.results {
-        let Some(crawled) = pages(test_name, result.result.ok_or_else(|| {
-            crawlberg::CrawlError::other(result.error.unwrap_or_else(|| "missing crawl result".to_owned()))
-        })) else {
+        let Some(crawled) = pages(
+            test_name,
+            result.result.ok_or_else(|| {
+                crawlberg::CrawlError::other(result.error.unwrap_or_else(|| "missing crawl result".to_owned()))
+            }),
+        ) else {
             return;
         };
         assert_eq!(crawled.len(), 2);

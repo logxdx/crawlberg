@@ -220,7 +220,9 @@ async fn do_fetch(service: &HttpFetchService, req: &CrawlRequest) -> Result<Craw
     #[cfg(feature = "browser-native")]
     let http_req = if let Some(cookies) = &service.native_cookies {
         let explicit = req.headers.keys().any(|name| name.eq_ignore_ascii_case("cookie"))
-            || seed_host_headers(config, &url).iter().any(|(name, _)| name.eq_ignore_ascii_case("cookie"));
+            || seed_host_headers(config, &url)
+                .iter()
+                .any(|(name, _)| name.eq_ignore_ascii_case("cookie"));
         if explicit {
             http_req
         } else {
@@ -247,7 +249,6 @@ async fn do_fetch(service: &HttpFetchService, req: &CrawlRequest) -> Result<Craw
             cookies.store_response_cookie(raw, &url);
         }
     }
-
 
     // ~keep The crawl's cookies are the one source a browser page reads, and this is the one place
     // ~keep a response fetched without the browser arrives. It reports the cookies it set here,

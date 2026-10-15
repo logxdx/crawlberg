@@ -36,15 +36,26 @@ async fn should_share_native_cookies_only_between_pages_of_one_enabled_crawl() {
         .expect("engine");
         let result = crawl(&engine, &site.uri()).await.expect("crawl succeeds");
         assert_eq!(result.pages.len(), 2);
-        let second = crawl(&engine, &format!("{}/next", site.uri())).await.expect("later crawl");
+        let second = crawl(&engine, &format!("{}/next", site.uri()))
+            .await
+            .expect("later crawl");
         assert_eq!(second.pages.len(), 1);
         let requests = site.received_requests().await.expect("requests");
         let sent = requests
             .iter()
             .filter(|request| request.url.path() == "/next")
-            .map(|request| request.headers.get("cookie").map(|value| value.to_str().expect("cookie header")))
+            .map(|request| {
+                request
+                    .headers
+                    .get("cookie")
+                    .map(|value| value.to_str().expect("cookie header"))
+            })
             .collect::<Vec<_>>();
-        let expected = if cookies_enabled { vec![Some("session=first"), None] } else { vec![None, None] };
+        let expected = if cookies_enabled {
+            vec![Some("session=first"), None]
+        } else {
+            vec![None, None]
+        };
         assert_eq!(sent, expected, "cookies_enabled={cookies_enabled}");
     }
 }
@@ -75,7 +86,7 @@ async fn should_send_an_http_redirect_cookie_to_native_automatic_rendering() {
     let engine = create_engine(Some(CrawlConfig {
         cookies_enabled: true,
         respect_robots_txt: false,
-        user_agent: "native-render".to_owned(),
+        user_agent: Some("native-render".to_owned()),
         user_agents: vec!["http-attempt".to_owned()],
         browser: BrowserConfig {
             backend: BrowserBackend::Native,
@@ -89,10 +100,16 @@ async fn should_send_an_http_redirect_cookie_to_native_automatic_rendering() {
     assert_eq!(result.pages.len(), 1);
     assert!(result.pages[0].browser_used);
     let requests = site.received_requests().await.expect("requests");
-    let rendered = requests.iter().filter(|request| {
-        request.url.path() == "/render"
-            && request.headers.get("user-agent").and_then(|value| value.to_str().ok()) == Some("native-render")
-    }).collect::<Vec<_>>();
+    let rendered = requests
+        .iter()
+        .filter(|request| {
+            request.url.path() == "/render"
+                && request.headers.get("user-agent").and_then(|value| value.to_str().ok()) == Some("native-render")
+        })
+        .collect::<Vec<_>>();
     assert_eq!(rendered.len(), 1);
-    assert_eq!(rendered[0].headers.get("cookie").and_then(|value| value.to_str().ok()), Some("http=first"));
+    assert_eq!(
+        rendered[0].headers.get("cookie").and_then(|value| value.to_str().ok()),
+        Some("http=first")
+    );
 }

@@ -175,10 +175,10 @@ impl CookieStore for PolicyCookieStore {
         let mut store = self.inner.write().unwrap_or_else(PoisonError::into_inner);
         for header in permitted {
             let Some(raw) = header.to_str().ok() else { continue };
-            let Ok(cookie) = cookie_store::Cookie::parse(raw, url) else { continue };
-            if !secure_cookie_source(url)
-                && (cookie.secure() == Some(true) || shadows_secure_cookie(&store, &cookie))
-            {
+            let Ok(cookie) = cookie_store::Cookie::parse(raw, url) else {
+                continue;
+            };
+            if !secure_cookie_source(url) && (cookie.secure() == Some(true) || shadows_secure_cookie(&store, &cookie)) {
                 continue;
             }
             if let Err(error) = store.insert(cookie.into_owned(), url) {
@@ -189,18 +189,21 @@ impl CookieStore for PolicyCookieStore {
 
     fn cookies(&self, url: &url::Url) -> Option<HeaderValue> {
         let store = self.inner.read().unwrap_or_else(PoisonError::into_inner);
-        let value = store.get_request_values(url)
+        let value = store
+            .get_request_values(url)
             .map(|(name, value)| format!("{name}={value}"))
             .collect::<Vec<_>>()
             .join("; ");
-        (!value.is_empty()).then(|| HeaderValue::from_str(&value).ok()).flatten()
+        (!value.is_empty())
+            .then(|| HeaderValue::from_str(&value).ok())
+            .flatten()
     }
 }
 
 fn secure_cookie_source(url: &url::Url) -> bool {
     url.scheme() == "https"
         || match url.host() {
-            Some(url::Host::Domain(host)) => host == "localhost" || host.ends_with(".localhost"),
+            Some(url::Host::Domain(host)) => host == "localhost",
             Some(url::Host::Ipv4(address)) => address.is_loopback(),
             Some(url::Host::Ipv6(address)) => address.is_loopback(),
             None => false,
@@ -208,17 +211,22 @@ fn secure_cookie_source(url: &url::Url) -> bool {
 }
 
 fn shadows_secure_cookie(store: &cookie_store::CookieStore, incoming: &cookie_store::Cookie<'_>) -> bool {
-    let Some(domain) = incoming.domain.as_cow() else { return false };
+    let Some(domain) = incoming.domain.as_cow() else {
+        return false;
+    };
     store.iter_unexpired().any(|existing| {
         if existing.secure() != Some(true) || existing.name() != incoming.name() {
             return false;
         }
-        let Some(existing_domain) = existing.domain.as_cow() else { return false };
+        let Some(existing_domain) = existing.domain.as_cow() else {
+            return false;
+        };
         let path: &str = &incoming.path;
         let protected: &str = &existing.path;
         (is_domain_match(&domain, &existing_domain) || is_domain_match(&existing_domain, &domain))
-            && (path == protected || (path.starts_with(protected)
-                && (protected.ends_with('/') || path.as_bytes().get(protected.len()) == Some(&b'/'))))
+            && (path == protected
+                || (path.starts_with(protected)
+                    && (protected.ends_with('/') || path.as_bytes().get(protected.len()) == Some(&b'/'))))
     })
 }
 
@@ -580,5 +588,135 @@ mod tests {
             None,
             "a host-only cookie of the suffix host must not reach another site under it"
         );
+    }
+
+    fn store_cookie(store: &PolicyCookieStore, source: &str, raw: &str) {
+        let header = HeaderValue::from_str(raw).expect("test cookie");
+        let source = url::Url::parse(source).expect("source URL");
+        store.set_cookies(&mut std::iter::once(&header), &source);
+    }
+
+    fn sent_cookies(store: &PolicyCookieStore, target: &str) -> Vec<String> {
+        let target = url::Url::parse(target).expect("target URL");
+        let mut cookies = store
+            .cookies(&target)
+            .map(|header| {
+                header
+                    .to_str()
+                    .expect("cookie header")
+                    .split("; ")
+                    .map(str::to_owned)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        cookies.sort_unstable();
+        cookies
+    }
+
+    #[test]
+    fn should_reject_insecure_shadowing_at_the_same_or_a_child_cookie_path() {
+        let store = PolicyCookieStore::default();
+        store_cookie(
+            &store,
+            "https://a.example.org/private",
+            "session=protected; Secure; Domain=example.org; Path=/private",
+        );
+        for raw in [
+            "session=attack; Domain=example.org; Path=/private/child",
+            "session=attack; Domain=example.org; Path=/private",
+            "session=; Domain=example.org; Path=/private; Max-Age=0",
+        ] {
+            store_cookie(&store, "http://a.example.org/private/child", raw);
+            assert_eq!(
+                sent_cookies(&store, "https://a.example.org/private/child"),
+                ["session=protected"],
+                "{raw}"
+            );
+            assert_eq!(
+                sent_cookies(&store, "http://a.example.org/private/child"),
+                Vec::<String>::new(),
+                "{raw}"
+            );
+        }
+    }
+
+    #[test]
+    fn should_allow_insecure_cookies_with_unrelated_paths_domains_or_names() {
+        for (source, raw, target, expected) in [
+            (
+                "http://a.example.org/public",
+                "session=allowed; Path=/public",
+                "https://a.example.org/public",
+                vec!["session=allowed"],
+            ),
+            (
+                "http://a.example.org/private-other",
+                "session=allowed; Path=/private-other",
+                "https://a.example.org/private-other",
+                vec!["session=allowed"],
+            ),
+            (
+                "http://other.org/private",
+                "session=allowed; Path=/private",
+                "https://other.org/private",
+                vec!["session=allowed"],
+            ),
+            (
+                "http://a.example.org/private",
+                "other=allowed; Path=/private",
+                "https://a.example.org/private",
+                vec!["other=allowed", "session=protected"],
+            ),
+        ] {
+            let store = PolicyCookieStore::default();
+            store_cookie(
+                &store,
+                "https://a.example.org/private",
+                "session=protected; Secure; Domain=example.org; Path=/private",
+            );
+            store_cookie(&store, source, raw);
+            assert_eq!(sent_cookies(&store, target), expected, "{raw} from {source}");
+            let protected = sent_cookies(&store, "https://a.example.org/private");
+            assert_eq!(
+                protected
+                    .iter()
+                    .filter(|cookie| cookie.starts_with("session="))
+                    .map(String::as_str)
+                    .collect::<Vec<_>>(),
+                ["session=protected"]
+            );
+        }
+    }
+
+    #[test]
+    fn should_allow_secure_origins_to_replace_and_delete_protected_cookies() {
+        let store = PolicyCookieStore::default();
+        let source = "https://example.org/private";
+        store_cookie(&store, source, "session=protected; Secure; Path=/private");
+        store_cookie(&store, source, "session=replaced; Secure; Path=/private");
+        assert_eq!(sent_cookies(&store, source), ["session=replaced"]);
+        store_cookie(&store, source, "session=; Path=/private; Max-Age=0");
+        assert_eq!(sent_cookies(&store, source), Vec::<String>::new());
+    }
+
+    #[test]
+    fn should_accept_localhost_and_loopback_as_secure_cookie_sources() {
+        for source in ["http://localhost/", "http://127.0.0.1/", "http://[::1]/"] {
+            let store = PolicyCookieStore::default();
+            store_cookie(&store, source, "session=first; Secure; Path=/");
+            assert_eq!(sent_cookies(&store, source), ["session=first"], "{source}");
+            store_cookie(&store, source, "session=second; Secure; Path=/");
+            assert_eq!(sent_cookies(&store, source), ["session=second"], "{source}");
+        }
+    }
+
+    #[test]
+    fn should_reject_secure_cookies_from_plain_http_localhost_subdomains() {
+        let store = PolicyCookieStore::default();
+        let source = "http://a.localhost/";
+        store_cookie(&store, source, "secure=rejected; Secure; Path=/");
+        store_cookie(&store, source, "ordinary=allowed; Path=/");
+        assert_eq!(sent_cookies(&store, source), ["ordinary=allowed"]);
+        assert_eq!(sent_cookies(&store, "https://a.localhost/"), ["ordinary=allowed"]);
     }
 }

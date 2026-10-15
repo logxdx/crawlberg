@@ -111,14 +111,21 @@ async fn two_live_engines_each_send_only_their_own_cookie() {
 
 #[tokio::test]
 async fn one_engine_sends_the_cookie_of_its_first_crawl_on_its_second_crawl() {
-    for backend in [crawlberg::BrowserBackend::Chromiumoxide, crawlberg::BrowserBackend::Native] {
+    for backend in [
+        crawlberg::BrowserBackend::Chromiumoxide,
+        crawlberg::BrowserBackend::Native,
+    ] {
         let site = site().await;
         let mut configuration = config(true);
         configuration.browser.backend = backend.clone();
         let engine = create_engine(Some(configuration)).expect("the engine must build");
         crawl_cookies(&engine, &site, "/set-a").await;
 
-        assert_eq!(crawl_cookies(&engine, &site, "/page").await, ["a=1"], "backend={backend:?}");
+        assert_eq!(
+            crawl_cookies(&engine, &site, "/page").await,
+            ["a=1"],
+            "backend={backend:?}"
+        );
     }
 }
 
