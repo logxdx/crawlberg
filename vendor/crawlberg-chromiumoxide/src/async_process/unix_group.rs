@@ -70,6 +70,13 @@ impl Group {
     }
 
     fn start_script(script: &str) -> io::Result<Self> {
+        // ~keep Never launch a group on a platform where its complete shutdown cannot be verified.
+        if !cfg!(any(target_os = "linux", target_os = "android", target_os = "macos")) {
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "no authoritative browser group census on this platform",
+            ));
+        }
         // ~keep The guardian starts first and retains its own group ID against reuse.
         // ~keep The acknowledgement socket closes before Chrome starts; no ownership pipe survives a fork.
         let (mut ready, child_ready) = std::os::unix::net::UnixStream::pair()?;
