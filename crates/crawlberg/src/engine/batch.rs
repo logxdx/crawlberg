@@ -52,9 +52,10 @@ impl CrawlEngine {
         };
         #[cfg(all(not(target_arch = "wasm32"), feature = "browser-native"))]
         let engine = Self {
-            native_cookies: self.config.cookies_enabled.then(|| {
-                crawlberg_browser::adapter::NativeRenderState::new(&[])
-            }),
+            native_cookies: (self.config.cookies_enabled
+                && self.config.browser.backend == BrowserBackend::Native
+                && self.config.browser.mode != BrowserMode::Never)
+                .then(|| crawlberg_browser::adapter::NativeRenderState::new(&[])),
             ..engine
         };
         #[cfg(feature = "browser")]
