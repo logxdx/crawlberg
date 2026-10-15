@@ -5,6 +5,7 @@ tasks:
     desc: Start the alef-generated mock HTTP server (background)
     cmds:
       - |
+        # ~keep GoTask exposes job handles; Bash supplies OS PIDs for the detached server's lifecycle.
         bash -eu -c '
           MOCK_SERVER_NO_STDIN_WATCH=1 ./e2e/rust/target/release/mock-server ./fixtures \
             </dev/null >.mock-server.out 2>&1 &
@@ -43,6 +44,7 @@ tasks:
     desc: Stop the e2e mock HTTP server
     cmds:
       - |
+        # ~keep GoTask's job-control builtin does not signal the detached OS process.
         bash -eu -c '
           if [ -f .mock-server.pid ]; then
             server_pid="$(cat .mock-server.pid)"

@@ -1,11 +1,16 @@
----
-title: "Changelog"
----
+# Changelog
+
+All notable changes to crawlberg are documented here.
 
 ## [Unreleased]
 
 ### Upgrading
 
+- Set `cookies_enabled=true` for cookie-based login through a browser endpoint or saved profile.
+  `false` now suppresses automatic Cookie headers from those stores as well as redirect cookies.
+- The converter upgrade renders an image with an empty source as its alt text and keeps markup
+  inside a `textarea` as literal text, instead of converting it into Markdown.
+  Empty headings in headerless HTML fragments no longer prevent conversion of the remaining body.
 - Swift `RustBridge` wrappers for `AuthConfig`, `CrawlEvent`, `HostMatcher` and `PageAction` now
   return tagged JSON with their payloads from `to_string()`, including authentication credential
   fields. The facade `toString()` still returns the variant tag.
@@ -42,7 +47,7 @@ title: "Changelog"
   field and its constructors take the same arguments.
 - **`CrawlPageResult`, `LinkInfo`, `FrontierEntry` and `ContentConfig` have new public fields.**
   The first three have `original_url`. `ContentConfig` has `strip_newlines`, `bullets`,
-  `list_indent_width`, `strong_em_symbol`, `compact_tables` and `keep_inline_images_in`. A Rust
+  `list_indent_width`, `strong_em_symbol`, `compact_tables`, `keep_inline_images_in` and `keep_hidden`. A Rust
   struct literal that names every field must add them. `..Default::default()` needs no change
   for `CrawlPageResult`, `LinkInfo` and `ContentConfig`; for `FrontierEntry` set
   `original_url: None`. The added fields are the last fields of `CrawlPageResult`, `LinkInfo` and
@@ -55,6 +60,10 @@ title: "Changelog"
   its entries reads an entry of an earlier release with no change.
 
 ### Added
+
+- `ContentConfig.keep_hidden` retains hidden elements and body templates in converted output.
+  It defaults to `false`; scripts, styles, explicit exclusions and image settings keep their
+  existing rules. The option applies to HTTP, browser and cached HTML. (#625)
 
 - Per-domain rate limiting emits TRACE events at `crawlberg::rate_limiter` with `domain` and
   numeric `wait_ms` fields for each selected pacing delay.
@@ -235,6 +244,26 @@ title: "Changelog"
   RUSTSEC-2026-0343.
 
 ### Fixed
+
+- Local build tasks resolve CMake on Unix, and E2E tasks stop their mock server after startup
+  or build failures.
+- Browser and HTTP fetches within one automatic crawl share cookie updates and deletions,
+  including HttpOnly cookies; separate browser-enabled crawls keep separate stores. Native
+  HTTP redirects retain their navigation's SameSite context. (#648)
+- HTTP cookie admission rejects insecure overwrites and deletions of retained Secure cookies
+  under the same lock used by requests, preserving protected values during concurrent fetches.
+- With cookies disabled, Chrome requests suppress automatic cookies on every redirect hop.
+  Explicit caller Cookie headers remain subject to their existing credential scope. (#649)
+- An external browser's failed child-target controller retains its debugger transport through
+  cancellation until its owned contexts and targets are authoritatively gone. Unrelated browser
+  tabs remain owned by the caller. (#763)
+- Browser page creation tolerates a creation reply before target discovery and repeated discovery
+  events, preserving pending page requests instead of panicking or cancelling them. (#701)
+- Markdown conversion uses html-to-markdown 3.18.0, including selector exclusions for table
+  captions, cells, rows and sections with hidden content enabled or disabled. The converter
+  also corrects malformed HTML, whitespace and raw-text handling. (#730)
+- Native browser pages share a complete cookie jar within one crawl, including HttpOnly,
+  Secure and expiry attributes; later crawls receive a fresh jar. (#650)
 
 - A crawl-result cookie has the same `domain` and `path` over HTTP and in the browser, so a
   crawl that uses both lists it once (#753). The fields give the scope that the browser stores:
@@ -542,6 +571,21 @@ title: "Changelog"
 - Dedicated binding compatibility CI checks released declarations and Python/Swift calls on
   pull requests, independently of the full E2E workflow (#737).
 
+## [1.10.3] - 2026-10-09
+
+### Security
+
+- Enforce browser egress policy before every page, popup, iframe, worker, and service-worker
+  target can execute. Browser controller loss now fails closed, and WebSocket, WebRTC, and UDP
+  transports remain confined to the configured proxy boundary.
+
+### Changed
+
+- Reject external browser endpoints while IP-based SSRF denial is active because Crawlberg cannot
+  prove or control the remote browser's network boundary.
+- Update compatible dependencies, including ext-php-rs 0.16.1, liter-llm 2.2, and minijinja 3.
+- Use the security-hardened `crawlberg-chromiumoxide` 0.9.2 fork for browser control.
+
 ## [1.10.2] - 2026-10-06
 
 ### Changed
@@ -725,9 +769,11 @@ title: "Changelog"
   to Swift's `init` and the Java record constructor, and `chromeArgs` to Dart's constructor. The
   Java builder and the other bindings give both settings defaults. (#79, #80)
 
-- **`crawlberg_browser::net::ssrf::DEFAULT_DENY_NET_CIDRS` grows from 13 to 14 entries**, adding
-  `240.0.0.0/4`. Code that pattern-matches or hardcodes the array's length breaks; code that
-  iterates it does not.
+- **`crawlberg_browser::adapter::DEFAULT_DENY_NET_CIDRS` is now a slice and grows from 13 to 14
+  entries**, adding `240.0.0.0/4`. Its exported type is `&[&str]`, so future length changes no
+  longer alter the type. Code that expected the fixed array must accept a slice instead. A direct
+  `for cidr in DEFAULT_DENY_NET_CIDRS` loop now yields `&&str` rather than `&str`; use
+  `DEFAULT_DENY_NET_CIDRS.iter().copied()` when the loop body needs `&str` values.
 
 - **An IPv6 allowlist entry no longer admits an address that carries a denied IPv4 address.**
   The IPv4-compatible (`::/96`), IPv4-translated, 6to4 (`2002::/16`), Teredo (`2001:0::/32`),
@@ -851,6 +897,11 @@ title: "Changelog"
   reads of the table. A process that runs after the last read is still not seen. This applies to
   the Chromiumoxide backend. (#585)
 
+- **The native browser serializes HTML raw-text elements by the HTML rules.** Text in `xmp`,
+  `iframe`, `noembed`, `noframes`, `plaintext` and `noscript` is no longer escaped, while text in
+  `title` and `textarea` is escaped so markup-like text cannot become active markup after a
+  reparse. (#288)
+
 - **The native browser fetched a blank stylesheet or script address as the page itself.** An
   empty address, or one made only of URL-parser whitespace, is now skipped before resolution, so
   it produces no duplicate request or network event. (#270)
@@ -859,6 +910,17 @@ title: "Changelog"
   classic script or module script under `<base href="/assets/">` was fetched relative to
   the page address instead. These subresources now resolve against the first `<base href>`,
   falling back to the page address when that base does not parse. (#265)
+
+- **Inline data no longer bloats markdown output.** An image whose source is a `data:` URL becomes
+  its alt text, and an inline SVG becomes its title. Links keep their visible text without the
+  destination, video and audio keep their fallback content, and an iframe with only an inline
+  address disappears. Elements with ordinary addresses are unchanged. (#97, #120)
+
+- **A redirect header with a non-ASCII byte was dropped.** Header collection accepted visible
+  ASCII only, so a `Location` or `Refresh` value containing an `obs-text` byte disappeared and
+  its redirect was missed. Response field values now use the browser's byte-preserving
+  isomorphic decode in both HTTP fetch paths, and direct `Location` handling uses the same
+  decode. (#278)
 
 - **Relative links in the markdown resolved against a `<base>` that was not one.** The markdown
   found the page's base with a second parser. That parser read markup inside `<title>`,

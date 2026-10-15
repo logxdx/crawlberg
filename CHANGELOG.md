@@ -6,6 +6,11 @@ All notable changes to crawlberg are documented here.
 
 ### Upgrading
 
+- Set `cookies_enabled=true` for cookie-based login through a browser endpoint or saved profile.
+  `false` now suppresses automatic Cookie headers from those stores as well as redirect cookies.
+- The converter upgrade renders an image with an empty source as its alt text and keeps markup
+  inside a `textarea` as literal text, instead of converting it into Markdown.
+  Empty headings in headerless HTML fragments no longer prevent conversion of the remaining body.
 - Swift `RustBridge` wrappers for `AuthConfig`, `CrawlEvent`, `HostMatcher` and `PageAction` now
   return tagged JSON with their payloads from `to_string()`, including authentication credential
   fields. The facade `toString()` still returns the variant tag.
@@ -42,7 +47,7 @@ All notable changes to crawlberg are documented here.
   field and its constructors take the same arguments.
 - **`CrawlPageResult`, `LinkInfo`, `FrontierEntry` and `ContentConfig` have new public fields.**
   The first three have `original_url`. `ContentConfig` has `strip_newlines`, `bullets`,
-  `list_indent_width`, `strong_em_symbol`, `compact_tables` and `keep_inline_images_in`. A Rust
+  `list_indent_width`, `strong_em_symbol`, `compact_tables`, `keep_inline_images_in` and `keep_hidden`. A Rust
   struct literal that names every field must add them. `..Default::default()` needs no change
   for `CrawlPageResult`, `LinkInfo` and `ContentConfig`; for `FrontierEntry` set
   `original_url: None`. The added fields are the last fields of `CrawlPageResult`, `LinkInfo` and
@@ -55,6 +60,10 @@ All notable changes to crawlberg are documented here.
   its entries reads an entry of an earlier release with no change.
 
 ### Added
+
+- `ContentConfig.keep_hidden` retains hidden elements and body templates in converted output.
+  It defaults to `false`; scripts, styles, explicit exclusions and image settings keep their
+  existing rules. The option applies to HTTP, browser and cached HTML. (#625)
 
 - Per-domain rate limiting emits TRACE events at `crawlberg::rate_limiter` with `domain` and
   numeric `wait_ms` fields for each selected pacing delay.
@@ -235,6 +244,26 @@ All notable changes to crawlberg are documented here.
   RUSTSEC-2026-0343.
 
 ### Fixed
+
+- Local build tasks resolve CMake on Unix, and E2E tasks stop their mock server after startup
+  or build failures.
+- Browser and HTTP fetches within one automatic crawl share cookie updates and deletions,
+  including HttpOnly cookies; separate browser-enabled crawls keep separate stores. Native
+  HTTP redirects retain their navigation's SameSite context. (#648)
+- HTTP cookie admission rejects insecure overwrites and deletions of retained Secure cookies
+  under the same lock used by requests, preserving protected values during concurrent fetches.
+- With cookies disabled, Chrome requests suppress automatic cookies on every redirect hop.
+  Explicit caller Cookie headers remain subject to their existing credential scope. (#649)
+- An external browser's failed child-target controller retains its debugger transport through
+  cancellation until its owned contexts and targets are authoritatively gone. Unrelated browser
+  tabs remain owned by the caller. (#763)
+- Browser page creation tolerates a creation reply before target discovery and repeated discovery
+  events, preserving pending page requests instead of panicking or cancelling them. (#701)
+- Markdown conversion uses html-to-markdown 3.18.0, including selector exclusions for table
+  captions, cells, rows and sections with hidden content enabled or disabled. The converter
+  also corrects malformed HTML, whitespace and raw-text handling. (#730)
+- Native browser pages share a complete cookie jar within one crawl, including HttpOnly,
+  Secure and expiry attributes; later crawls receive a fresh jar. (#650)
 
 - A crawl-result cookie has the same `domain` and `path` over HTTP and in the browser, so a
   crawl that uses both lists it once (#753). The fields give the scope that the browser stores:
