@@ -202,7 +202,10 @@ fn assert_worker_signal_delivery() {
     .join()
     .expect("signal worker must finish");
     assert_eq!(result, 0);
-    assert!(SIGNAL_EVENTS.load(Ordering::Relaxed) > before, "worker must run the handler");
+    assert!(
+        SIGNAL_EVENTS.load(Ordering::Relaxed) > before,
+        "worker must run the handler"
+    );
 }
 
 #[allow(unsafe_code)]
