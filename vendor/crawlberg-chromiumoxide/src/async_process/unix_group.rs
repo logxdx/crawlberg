@@ -4,6 +4,9 @@ use std::process::{Child, Command};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
+#[path = "unix_group_drain.rs"]
+mod drain;
+
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
 const DROP_TIMEOUT: Duration = Duration::from_secs(2);
 const OWNER_PROBE_TIMEOUT: Duration = Duration::from_secs(1);
@@ -108,7 +111,7 @@ impl Group {
         if child.is_none() {
             return Ok(());
         }
-        signal_group(self.id)
+        signal_group(self.id, libc::SIGTERM)
     }
 
     pub(super) fn stop(&self, limit: Duration) -> bool {
@@ -120,23 +123,38 @@ impl Group {
         if child.is_none() {
             return true;
         }
-        if signal_group(self.id).is_err() {
+        if drain::guardian_exited(self.id).is_err() || signal_group(self.id, libc::SIGTERM).is_err() {
             return false;
         }
+        let mut killed_remaining = false;
         loop {
-            let status = match child.as_mut() {
-                Some(child) => child.try_wait(),
-                None => return true,
-            };
-            match status {
-                Ok(Some(_)) => {
-                    child.take();
-                    return true;
+            match drain::guardian_exited(self.id) {
+                Ok(true) => {
+                    // ~keep WNOWAIT retains the guardian's PID: no group signal can reach a reused group ID.
+                    if !killed_remaining {
+                        if signal_group(self.id, libc::SIGKILL).is_err() {
+                            return false;
+                        }
+                        killed_remaining = true;
+                    }
+                    match drain::has_live_members(self.id) {
+                        Ok(false) => {
+                            let reaped = child.as_mut().is_some_and(|guardian| guardian.wait().is_ok());
+                            if reaped {
+                                child.take();
+                            }
+                            return reaped;
+                        }
+                        Err(_) | Ok(true) => {}
+                    }
                 }
                 Err(_) => return false,
-                Ok(None) if Instant::now() >= deadline => return false,
-                Ok(None) => std::thread::sleep(POLL_INTERVAL),
+                Ok(false) => {}
             }
+            if Instant::now() >= deadline {
+                return false;
+            }
+            std::thread::sleep(POLL_INTERVAL);
         }
     }
 }
@@ -153,18 +171,16 @@ impl Drop for Group {
 }
 
 #[allow(unsafe_code)]
-fn signal_group(id: u32) -> io::Result<()> {
-    const SIGTERM: i32 = 15;
-    const ESRCH: i32 = 3;
+fn signal_group(id: u32, signal: i32) -> io::Result<()> {
     let id = i32::try_from(id).map_err(|_| io::Error::other("browser group ID is too large"))?;
     unsafe extern "C" {
         fn kill(pid: i32, signal: i32) -> i32;
     }
     // SAFETY: the mutex retains the unreaped guardian, so this group ID cannot be recycled.
-    // TERM stops the foreground helper promptly; the guardian reaps it before its KILL trap.
-    if unsafe { kill(-id, SIGTERM) } != 0 {
+    // ~keep TERM lets the guardian reap its foreground helper before its KILL trap.
+    if unsafe { kill(-id, signal) } != 0 {
         let error = io::Error::last_os_error();
-        if error.raw_os_error() != Some(ESRCH) {
+        if error.raw_os_error() != Some(libc::ESRCH) {
             return Err(error);
         }
     }
@@ -251,6 +267,34 @@ pub(super) fn status_parent(status: &str) -> Option<u32> {
 #[cfg(test)]
 mod ownership_tests {
     use super::*;
+
+    #[test]
+    #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
+    fn the_group_census_sees_a_live_member_and_excludes_its_guardian_and_bystander() {
+        let group = Group::start_script("trap 'exit 0' TERM; printf .; while :; do :; done")
+            .expect("guardian with no helper processes");
+        let mut bystander = Command::new("/bin/sleep").arg("300").spawn().expect("unrelated process");
+        let initially_empty = !drain::has_live_members(group.id()).expect("initial group census");
+        let mut member = Command::new("/bin/sleep")
+            .arg("300")
+            .process_group(i32::try_from(group.id()).expect("group fits pid"))
+            .spawn()
+            .expect("owned group member");
+        let member_visible = drain::has_live_members(group.id()).expect("live member census");
+        member.kill().expect("stop owned member");
+        member.wait().expect("reap owned member");
+        let finally_empty = !drain::has_live_members(group.id()).expect("ended member census");
+        let stopped = group.stop(DROP_TIMEOUT);
+        let bystander_running = bystander.try_wait().expect("bystander status").is_none();
+        let _ = bystander.kill();
+        let _ = bystander.wait();
+
+        assert!(initially_empty, "the guardian and unrelated process do not count as live group members");
+        assert!(member_visible, "the census must actually inspect a live owned member");
+        assert!(finally_empty, "a reaped member must leave no live group member");
+        assert!(stopped, "the guardian-only group must stop");
+        assert!(bystander_running, "the group stop must preserve unrelated processes");
+    }
 
     #[test]
     fn a_guardian_exit_does_not_report_a_live_member_stopped() {
