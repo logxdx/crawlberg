@@ -355,6 +355,8 @@ impl CrawlEngineBuilder {
             crawl_schedule: None,
             #[cfg(all(not(target_arch = "wasm32"), feature = "browser-native"))]
             native_browser_executor,
+            #[cfg(all(not(target_arch = "wasm32"), feature = "browser-native"))]
+            native_cookies: None,
             #[cfg(feature = "browser")]
             crawl_cookies: None,
             #[cfg(feature = "browser")]

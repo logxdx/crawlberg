@@ -95,6 +95,8 @@ pub struct CrawlEngine {
     crawl_schedule: Option<Arc<cooperative::CooperativeContext>>,
     #[cfg(all(not(target_arch = "wasm32"), feature = "browser-native"))]
     pub(crate) native_browser_executor: Option<Arc<crawlberg_browser::adapter::NativeBrowserExecutor>>,
+    #[cfg(all(not(target_arch = "wasm32"), feature = "browser-native"))]
+    native_cookies: Option<crawlberg_browser::adapter::NativeRenderState>,
     /// The cookies the Chrome pages of one crawl have in common, when `cookies_enabled` is set.
     /// `None` outside a crawl: each crawl call gets its own, so no two crawls share a cookie.
     #[cfg(feature = "browser")]
