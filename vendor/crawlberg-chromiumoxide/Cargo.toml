@@ -48,7 +48,7 @@ features = [
 version = "=0.2.189"
 
 [dependencies.async-tungstenite]
-version = "0.32"
+version = "0.35"
 features = ["tokio-runtime"]
 
 [dependencies.base64]

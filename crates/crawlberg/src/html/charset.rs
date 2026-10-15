@@ -27,6 +27,7 @@
 
 use std::cell::{Cell, RefCell};
 
+use chardetng::{EncodingDetector, Iso2022JpDetection, Utf8Detection};
 use encoding_rs::{Encoding, UTF_8, UTF_16BE, UTF_16LE, WINDOWS_1252, X_USER_DEFINED};
 use html5ever::tendril::StrTendril;
 use html5ever::tokenizer::states::RawKind;
@@ -217,7 +218,7 @@ fn decide(content_type: &str, url: &str, body_bytes: &[u8]) -> Charset {
 /// Whether `body_bytes` are UTF-8, or UTF-8 but for a few sequences.
 ///
 /// ~keep The detector cannot make this call: its UTF-8 candidate is out at the first sequence
-/// ~keep that is not UTF-8 (`chardetng` 0.1.17, `Utf8Candidate::feed`), so one bad byte in a
+/// ~keep that is not UTF-8 (`Utf8Candidate::feed`), so one bad byte in a
 /// ~keep UTF-8 page made it answer with a legacy encoding for the whole page.
 /// ~keep A sequence that the end of the body cuts short is not a bad sequence: a body read up to
 /// ~keep a size limit ends wherever the limit falls.
@@ -451,16 +452,16 @@ fn detect(url: &str, body_bytes: &[u8]) -> &'static Encoding {
     let sample = &body_bytes[..body_bytes.len().min(DETECTION_LIMIT)];
     let top_level_domain = top_level_domain(url);
     let hint = top_level_domain.as_deref().map(str::as_bytes);
-    let mut detector = chardetng::EncodingDetector::new();
+    let mut detector = EncodingDetector::new(Iso2022JpDetection::Allow);
     detector.feed(sample, false);
-    let unfinished = detector.guess(hint, false);
+    let unfinished = detector.guess(hint, Utf8Detection::Deny);
     detector.feed(&[], true);
-    let finished = detector.guess(hint, false);
+    let finished = detector.guess(hint, Utf8Detection::Deny);
     let stands = finished != unfinished
         && before_a_cut_character(unfinished, sample).is_some_and(|complete| {
-            let mut detector = chardetng::EncodingDetector::new();
+            let mut detector = EncodingDetector::new(Iso2022JpDetection::Allow);
             detector.feed(complete, true);
-            detector.guess(hint, false) == unfinished
+            detector.guess(hint, Utf8Detection::Deny) == unfinished
         });
     if stands { unfinished } else { finished }
 }
