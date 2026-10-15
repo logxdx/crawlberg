@@ -20,7 +20,7 @@ async fn reject_service_worker_arm_relay(upstream: String, rejected: Arc<AtomicB
                 let pending = Arc::new(Mutex::new(HashSet::<u64>::new()));
                 let workers = Arc::clone(&sessions);
                 let calls = Arc::clone(&pending);
-                let forward = tokio::spawn(async move {
+                let forward = async move {
                     while let Some(Ok(message)) = futures::StreamExt::next(&mut from_client).await {
                         if let Message::Text(text) = &message {
                             let value: serde_json::Value = serde_json::from_str(text).expect("command JSON");
@@ -32,7 +32,8 @@ async fn reject_service_worker_arm_relay(upstream: String, rejected: Arc<AtomicB
                         }
                         if to_chrome.send(message).await.is_err() { break }
                     }
-                });
+                };
+                let backward = async move {
                 while let Some(Ok(mut message)) = futures::StreamExt::next(&mut from_chrome).await {
                     if let Message::Text(text) = &message {
                         let value: serde_json::Value = serde_json::from_str(text).expect("Chrome JSON");
@@ -50,7 +51,13 @@ async fn reject_service_worker_arm_relay(upstream: String, rejected: Arc<AtomicB
                     }
                     if to_client.send(message).await.is_err() { break }
                 }
-                forward.abort();
+                };
+                // ~keep Both halves must drop on either EOF: keeping the upstream reader alive
+                // ~keep would hide the very debugger-detach leak this relay must reproduce.
+                tokio::select! {
+                    () = forward => {}
+                    () = backward => {}
+                }
             });
         }
     });
