@@ -58,18 +58,17 @@ async fn delayed_refresh_header_is_a_link_against_the_response_address() {
 }
 
 #[tokio::test]
-async fn a_headerless_heading_fragment_reports_conversion_failure() {
+async fn a_headerless_fragment_preserves_body_text_after_an_empty_heading() {
     let site = MockServer::start().await;
     Mock::given(path("/page"))
         .respond_with(ResponseTemplate::new(200).set_body_bytes(b"<h2> </h2><p>body text</p>"))
         .mount(&site)
         .await;
     let engine = create_engine(Some(config())).unwrap();
-    let result = scrape(&engine, &format!("{}/page", site.uri())).await;
-    assert!(
-        matches!(result, Err(ref error) if error.to_string().starts_with("conversion_failed:")),
-        "{result:?}"
-    );
+    let result = scrape(&engine, &format!("{}/page", site.uri())).await.unwrap();
+    assert_eq!(result.status_code, 200);
+    assert_eq!(result.html, "<h2> </h2><p>body text</p>");
+    assert_eq!(result.markdown.unwrap().content, "body text\n");
 }
 
 #[tokio::test]

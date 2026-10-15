@@ -600,7 +600,7 @@ dependencies = [
  "futures",
  "getrandom 0.3.4",
  "getrandom 0.4.3",
- "html-escape",
+ "html-escape 0.2.15",
  "html-to-markdown-rs",
  "html5ever",
  "http-body-util",
@@ -1143,16 +1143,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c9356095b4b41197bba32173600e1582792cda618f65d12f68e2e77d273413c5"
 
 [[package]]
-name = "html-to-markdown-rs"
-version = "3.17.2"
+name = "html-escape"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee5ad2da135929dd837dbbe626ce6ba3360b9e5bd11ab197048f9896a5c6846f"
+checksum = "491194d601b4fa9fac3c9571e014070a0ad1bc3392d1bc10419695196a8b3cc3"
+
+[[package]]
+name = "html-to-markdown-rs"
+version = "3.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f656348dddd7b560bbfc40f3c1010974baebb614260705cac492a71da4e39b8"
 dependencies = [
  "ahash",
  "astral-tl",
  "base64 0.23.1",
  "bitflags",
- "html-escape",
+ "html-escape 0.3.0",
  "html5ever",
  "image",
  "memchr",
@@ -2743,7 +2749,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",

@@ -100,7 +100,10 @@ typedef struct CBERGContentConfig CBERGContentConfig;
  */
 typedef struct CBERGContentFilterKind CBERGContentFilterKind;
 /**
- * Information about an HTTP cookie received from a response.
+ * Information about a cookie that a crawled page set.
+ *
+ * A crawl result gives `domain` and `path` as the browser stores the cookie, so a cookie has
+ * the same fields whether an HTTP fetch or the browser received it.
  */
 typedef struct CBERGCookieInfo CBERGCookieInfo;
 /**
@@ -290,6 +293,8 @@ enum CBERGAlefFfiErrorCode
   CbergAlefPanic = 3,
   CbergAlefInvalidHandle = 4,
   CbergAlefCancelled = 5,
+  CrawlbergCrawlErrorTooManyRedirects = 100,
+  CrawlbergSsrfErrorTooManyRedirects = 101,
 };
 #if __STDC_VERSION__ >= 202311L
 typedef enum CBERGAlefFfiErrorCode CBERGAlefFfiErrorCode;
@@ -1339,6 +1344,13 @@ int32_t cberg_content_config_compact_tables(CBERGAlefHandle handle);
  * Pointer must be a valid handle returned by this library.
  */
 char *cberg_content_config_keep_inline_images_in(CBERGAlefHandle handle);
+
+/**
+ * Get the `keep_hidden` field from a `ContentConfig`.
+ * # Safety
+ * Pointer must be a valid handle returned by this library.
+ */
+int32_t cberg_content_config_keep_hidden(CBERGAlefHandle handle);
 
 /**
  * \note SAFETY: Caller must ensure all pointer arguments are valid or null. Returned pointers must be

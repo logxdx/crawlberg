@@ -168,6 +168,8 @@
     "c/markdown/markdown-fit-content.md",
     "c/markdown/markdown-formatting-options.md",
     "c/markdown/markdown-headings-and-paragraphs.md",
+    "c/markdown/markdown-hidden-excluded-by-default.md",
+    "c/markdown/markdown-keep-hidden.md",
     "c/markdown/markdown-links-converted.md",
     "c/markdown/markdown-no-frontmatter.md",
     "c/markdown/markdown-with-citations.md",
@@ -439,6 +441,8 @@
     "csharp/markdown/markdown-fit-content.md",
     "csharp/markdown/markdown-formatting-options.md",
     "csharp/markdown/markdown-headings-and-paragraphs.md",
+    "csharp/markdown/markdown-hidden-excluded-by-default.md",
+    "csharp/markdown/markdown-keep-hidden.md",
     "csharp/markdown/markdown-links-converted.md",
     "csharp/markdown/markdown-no-frontmatter.md",
     "csharp/markdown/markdown-with-citations.md",
@@ -718,6 +722,8 @@
     "dart/markdown/markdown-fit-content.md",
     "dart/markdown/markdown-formatting-options.md",
     "dart/markdown/markdown-headings-and-paragraphs.md",
+    "dart/markdown/markdown-hidden-excluded-by-default.md",
+    "dart/markdown/markdown-keep-hidden.md",
     "dart/markdown/markdown-links-converted.md",
     "dart/markdown/markdown-no-frontmatter.md",
     "dart/markdown/markdown-with-citations.md",
@@ -988,6 +994,8 @@
     "elixir/markdown/markdown-fit-content.md",
     "elixir/markdown/markdown-formatting-options.md",
     "elixir/markdown/markdown-headings-and-paragraphs.md",
+    "elixir/markdown/markdown-hidden-excluded-by-default.md",
+    "elixir/markdown/markdown-keep-hidden.md",
     "elixir/markdown/markdown-links-converted.md",
     "elixir/markdown/markdown-no-frontmatter.md",
     "elixir/markdown/markdown-with-citations.md",
@@ -1265,6 +1273,8 @@
     "go/markdown/markdown-fit-content.md",
     "go/markdown/markdown-formatting-options.md",
     "go/markdown/markdown-headings-and-paragraphs.md",
+    "go/markdown/markdown-hidden-excluded-by-default.md",
+    "go/markdown/markdown-keep-hidden.md",
     "go/markdown/markdown-links-converted.md",
     "go/markdown/markdown-no-frontmatter.md",
     "go/markdown/markdown-with-citations.md",
@@ -1544,6 +1554,8 @@
     "java/markdown/markdown-fit-content.md",
     "java/markdown/markdown-formatting-options.md",
     "java/markdown/markdown-headings-and-paragraphs.md",
+    "java/markdown/markdown-hidden-excluded-by-default.md",
+    "java/markdown/markdown-keep-hidden.md",
     "java/markdown/markdown-links-converted.md",
     "java/markdown/markdown-no-frontmatter.md",
     "java/markdown/markdown-with-citations.md",
@@ -1823,6 +1835,8 @@
     "kotlin-android/markdown/markdown-fit-content.md",
     "kotlin-android/markdown/markdown-formatting-options.md",
     "kotlin-android/markdown/markdown-headings-and-paragraphs.md",
+    "kotlin-android/markdown/markdown-hidden-excluded-by-default.md",
+    "kotlin-android/markdown/markdown-keep-hidden.md",
     "kotlin-android/markdown/markdown-links-converted.md",
     "kotlin-android/markdown/markdown-no-frontmatter.md",
     "kotlin-android/markdown/markdown-with-citations.md",
@@ -2102,6 +2116,8 @@
     "php/markdown/markdown-fit-content.md",
     "php/markdown/markdown-formatting-options.md",
     "php/markdown/markdown-headings-and-paragraphs.md",
+    "php/markdown/markdown-hidden-excluded-by-default.md",
+    "php/markdown/markdown-keep-hidden.md",
     "php/markdown/markdown-links-converted.md",
     "php/markdown/markdown-no-frontmatter.md",
     "php/markdown/markdown-with-citations.md",
@@ -2381,6 +2397,8 @@
     "python/markdown/markdown-fit-content.md",
     "python/markdown/markdown-formatting-options.md",
     "python/markdown/markdown-headings-and-paragraphs.md",
+    "python/markdown/markdown-hidden-excluded-by-default.md",
+    "python/markdown/markdown-keep-hidden.md",
     "python/markdown/markdown-links-converted.md",
     "python/markdown/markdown-no-frontmatter.md",
     "python/markdown/markdown-with-citations.md",
@@ -2660,6 +2678,8 @@
     "ruby/markdown/markdown-fit-content.md",
     "ruby/markdown/markdown-formatting-options.md",
     "ruby/markdown/markdown-headings-and-paragraphs.md",
+    "ruby/markdown/markdown-hidden-excluded-by-default.md",
+    "ruby/markdown/markdown-keep-hidden.md",
     "ruby/markdown/markdown-links-converted.md",
     "ruby/markdown/markdown-no-frontmatter.md",
     "ruby/markdown/markdown-with-citations.md",
@@ -2939,6 +2959,8 @@
     "rust/markdown/markdown-fit-content.md",
     "rust/markdown/markdown-formatting-options.md",
     "rust/markdown/markdown-headings-and-paragraphs.md",
+    "rust/markdown/markdown-hidden-excluded-by-default.md",
+    "rust/markdown/markdown-keep-hidden.md",
     "rust/markdown/markdown-links-converted.md",
     "rust/markdown/markdown-no-frontmatter.md",
     "rust/markdown/markdown-with-citations.md",
@@ -3209,6 +3231,8 @@
     "swift/markdown/markdown-fit-content.md",
     "swift/markdown/markdown-formatting-options.md",
     "swift/markdown/markdown-headings-and-paragraphs.md",
+    "swift/markdown/markdown-hidden-excluded-by-default.md",
+    "swift/markdown/markdown-keep-hidden.md",
     "swift/markdown/markdown-links-converted.md",
     "swift/markdown/markdown-no-frontmatter.md",
     "swift/markdown/markdown-with-citations.md",
@@ -3486,6 +3510,8 @@
     "typescript/markdown/markdown-fit-content.md",
     "typescript/markdown/markdown-formatting-options.md",
     "typescript/markdown/markdown-headings-and-paragraphs.md",
+    "typescript/markdown/markdown-hidden-excluded-by-default.md",
+    "typescript/markdown/markdown-keep-hidden.md",
     "typescript/markdown/markdown-links-converted.md",
     "typescript/markdown/markdown-no-frontmatter.md",
     "typescript/markdown/markdown-with-citations.md",
@@ -3764,6 +3790,8 @@
     "wasm/markdown/markdown-fit-content.md",
     "wasm/markdown/markdown-formatting-options.md",
     "wasm/markdown/markdown-headings-and-paragraphs.md",
+    "wasm/markdown/markdown-hidden-excluded-by-default.md",
+    "wasm/markdown/markdown-keep-hidden.md",
     "wasm/markdown/markdown-links-converted.md",
     "wasm/markdown/markdown-no-frontmatter.md",
     "wasm/markdown/markdown-with-citations.md",
@@ -4026,6 +4054,8 @@
     "zig/markdown/markdown-fit-content.md",
     "zig/markdown/markdown-formatting-options.md",
     "zig/markdown/markdown-headings-and-paragraphs.md",
+    "zig/markdown/markdown-hidden-excluded-by-default.md",
+    "zig/markdown/markdown-keep-hidden.md",
     "zig/markdown/markdown-links-converted.md",
     "zig/markdown/markdown-no-frontmatter.md",
     "zig/markdown/markdown-with-citations.md",
@@ -6135,6 +6165,30 @@
         "language": "c"
       },
       "path": "c/markdown/markdown-headings-and-paragraphs.md",
+      "language": "c",
+      "target": "c",
+      "session": "c",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_hidden_excluded_by_default",
+        "language": "c"
+      },
+      "path": "c/markdown/markdown-hidden-excluded-by-default.md",
+      "language": "c",
+      "target": "c",
+      "session": "c",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_keep_hidden",
+        "language": "c"
+      },
+      "path": "c/markdown/markdown-keep-hidden.md",
       "language": "c",
       "target": "c",
       "session": "c",
@@ -9387,6 +9441,30 @@
         "language": "csharp"
       },
       "path": "csharp/markdown/markdown-headings-and-paragraphs.md",
+      "language": "csharp",
+      "target": "csharp",
+      "session": "csharp",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_hidden_excluded_by_default",
+        "language": "csharp"
+      },
+      "path": "csharp/markdown/markdown-hidden-excluded-by-default.md",
+      "language": "csharp",
+      "target": "csharp",
+      "session": "csharp",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_keep_hidden",
+        "language": "csharp"
+      },
+      "path": "csharp/markdown/markdown-keep-hidden.md",
       "language": "csharp",
       "target": "csharp",
       "session": "csharp",
@@ -12743,6 +12821,30 @@
     },
     {
       "key": {
+        "fixture_id": "markdown_hidden_excluded_by_default",
+        "language": "dart"
+      },
+      "path": "dart/markdown/markdown-hidden-excluded-by-default.md",
+      "language": "dart",
+      "target": "dart",
+      "session": "dart",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_keep_hidden",
+        "language": "dart"
+      },
+      "path": "dart/markdown/markdown-keep-hidden.md",
+      "language": "dart",
+      "target": "dart",
+      "session": "dart",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
         "fixture_id": "markdown_links_converted",
         "language": "dart"
       },
@@ -15975,6 +16077,30 @@
         "language": "elixir"
       },
       "path": "elixir/markdown/markdown-headings-and-paragraphs.md",
+      "language": "elixir",
+      "target": "elixir",
+      "session": "elixir",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_hidden_excluded_by_default",
+        "language": "elixir"
+      },
+      "path": "elixir/markdown/markdown-hidden-excluded-by-default.md",
+      "language": "elixir",
+      "target": "elixir",
+      "session": "elixir",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_keep_hidden",
+        "language": "elixir"
+      },
+      "path": "elixir/markdown/markdown-keep-hidden.md",
       "language": "elixir",
       "target": "elixir",
       "session": "elixir",
@@ -19299,6 +19425,30 @@
         "language": "go"
       },
       "path": "go/markdown/markdown-headings-and-paragraphs.md",
+      "language": "go",
+      "target": "go",
+      "session": "go",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_hidden_excluded_by_default",
+        "language": "go"
+      },
+      "path": "go/markdown/markdown-hidden-excluded-by-default.md",
+      "language": "go",
+      "target": "go",
+      "session": "go",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_keep_hidden",
+        "language": "go"
+      },
+      "path": "go/markdown/markdown-keep-hidden.md",
       "language": "go",
       "target": "go",
       "session": "go",
@@ -22655,6 +22805,30 @@
     },
     {
       "key": {
+        "fixture_id": "markdown_hidden_excluded_by_default",
+        "language": "java"
+      },
+      "path": "java/markdown/markdown-hidden-excluded-by-default.md",
+      "language": "java",
+      "target": "java",
+      "session": "java",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_keep_hidden",
+        "language": "java"
+      },
+      "path": "java/markdown/markdown-keep-hidden.md",
+      "language": "java",
+      "target": "java",
+      "session": "java",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
         "fixture_id": "markdown_links_converted",
         "language": "java"
       },
@@ -25995,6 +26169,30 @@
         "language": "kotlin_android"
       },
       "path": "kotlin-android/markdown/markdown-headings-and-paragraphs.md",
+      "language": "kotlin",
+      "target": "kotlin_android",
+      "session": "kotlin_android",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_hidden_excluded_by_default",
+        "language": "kotlin_android"
+      },
+      "path": "kotlin-android/markdown/markdown-hidden-excluded-by-default.md",
+      "language": "kotlin",
+      "target": "kotlin_android",
+      "session": "kotlin_android",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_keep_hidden",
+        "language": "kotlin_android"
+      },
+      "path": "kotlin-android/markdown/markdown-keep-hidden.md",
       "language": "kotlin",
       "target": "kotlin_android",
       "session": "kotlin_android",
@@ -29351,6 +29549,30 @@
     },
     {
       "key": {
+        "fixture_id": "markdown_hidden_excluded_by_default",
+        "language": "php"
+      },
+      "path": "php/markdown/markdown-hidden-excluded-by-default.md",
+      "language": "php",
+      "target": "php",
+      "session": "php",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_keep_hidden",
+        "language": "php"
+      },
+      "path": "php/markdown/markdown-keep-hidden.md",
+      "language": "php",
+      "target": "php",
+      "session": "php",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
         "fixture_id": "markdown_links_converted",
         "language": "php"
       },
@@ -32699,6 +32921,30 @@
     },
     {
       "key": {
+        "fixture_id": "markdown_hidden_excluded_by_default",
+        "language": "python"
+      },
+      "path": "python/markdown/markdown-hidden-excluded-by-default.md",
+      "language": "python",
+      "target": "python",
+      "session": "python",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_keep_hidden",
+        "language": "python"
+      },
+      "path": "python/markdown/markdown-keep-hidden.md",
+      "language": "python",
+      "target": "python",
+      "session": "python",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
         "fixture_id": "markdown_links_converted",
         "language": "python"
       },
@@ -36039,6 +36285,30 @@
         "language": "ruby"
       },
       "path": "ruby/markdown/markdown-headings-and-paragraphs.md",
+      "language": "ruby",
+      "target": "ruby",
+      "session": "ruby",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_hidden_excluded_by_default",
+        "language": "ruby"
+      },
+      "path": "ruby/markdown/markdown-hidden-excluded-by-default.md",
+      "language": "ruby",
+      "target": "ruby",
+      "session": "ruby",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_keep_hidden",
+        "language": "ruby"
+      },
+      "path": "ruby/markdown/markdown-keep-hidden.md",
       "language": "ruby",
       "target": "ruby",
       "session": "ruby",
@@ -39851,6 +40121,36 @@
     },
     {
       "key": {
+        "fixture_id": "markdown_hidden_excluded_by_default",
+        "language": "rust"
+      },
+      "path": "rust/markdown/markdown-hidden-excluded-by-default.md",
+      "language": "rust",
+      "target": "rust",
+      "session": "rust",
+      "requires": [
+        "crate:serde_json",
+        "crate:tokio"
+      ],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_keep_hidden",
+        "language": "rust"
+      },
+      "path": "rust/markdown/markdown-keep-hidden.md",
+      "language": "rust",
+      "target": "rust",
+      "session": "rust",
+      "requires": [
+        "crate:serde_json",
+        "crate:tokio"
+      ],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
         "fixture_id": "markdown_links_converted",
         "language": "rust"
       },
@@ -43407,6 +43707,30 @@
     },
     {
       "key": {
+        "fixture_id": "markdown_hidden_excluded_by_default",
+        "language": "swift"
+      },
+      "path": "swift/markdown/markdown-hidden-excluded-by-default.md",
+      "language": "swift",
+      "target": "swift",
+      "session": "swift",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_keep_hidden",
+        "language": "swift"
+      },
+      "path": "swift/markdown/markdown-keep-hidden.md",
+      "language": "swift",
+      "target": "swift",
+      "session": "swift",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
         "fixture_id": "markdown_links_converted",
         "language": "swift"
       },
@@ -46723,6 +47047,30 @@
         "language": "node"
       },
       "path": "typescript/markdown/markdown-headings-and-paragraphs.md",
+      "language": "typescript",
+      "target": "node",
+      "session": "node",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_hidden_excluded_by_default",
+        "language": "node"
+      },
+      "path": "typescript/markdown/markdown-hidden-excluded-by-default.md",
+      "language": "typescript",
+      "target": "node",
+      "session": "node",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_keep_hidden",
+        "language": "node"
+      },
+      "path": "typescript/markdown/markdown-keep-hidden.md",
       "language": "typescript",
       "target": "node",
       "session": "node",
@@ -50067,6 +50415,30 @@
     },
     {
       "key": {
+        "fixture_id": "markdown_hidden_excluded_by_default",
+        "language": "wasm"
+      },
+      "path": "wasm/markdown/markdown-hidden-excluded-by-default.md",
+      "language": "typescript",
+      "target": "wasm",
+      "session": "wasm",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_keep_hidden",
+        "language": "wasm"
+      },
+      "path": "wasm/markdown/markdown-keep-hidden.md",
+      "language": "typescript",
+      "target": "wasm",
+      "session": "wasm",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
         "fixture_id": "markdown_links_converted",
         "language": "wasm"
       },
@@ -53203,6 +53575,30 @@
         "language": "zig"
       },
       "path": "zig/markdown/markdown-headings-and-paragraphs.md",
+      "language": "zig",
+      "target": "zig",
+      "session": "zig",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_hidden_excluded_by_default",
+        "language": "zig"
+      },
+      "path": "zig/markdown/markdown-hidden-excluded-by-default.md",
+      "language": "zig",
+      "target": "zig",
+      "session": "zig",
+      "requires": [],
+      "side_effect": "safe"
+    },
+    {
+      "key": {
+        "fixture_id": "markdown_keep_hidden",
+        "language": "zig"
+      },
+      "path": "zig/markdown/markdown-keep-hidden.md",
       "language": "zig",
       "target": "zig",
       "session": "zig",
@@ -64709,6 +65105,126 @@
     },
     {
       "fixture_id": "markdown_headings_and_paragraphs",
+      "language": "zig"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "c"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "csharp"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "dart"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "elixir"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "go"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "java"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "kotlin_android"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "node"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "php"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "python"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "ruby"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "rust"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "swift"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "wasm"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "zig"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "c"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "csharp"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "dart"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "elixir"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "go"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "java"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "kotlin_android"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "node"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "php"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "python"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "ruby"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "rust"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "swift"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "wasm"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
       "language": "zig"
     },
     {
@@ -81247,6 +81763,126 @@
     },
     {
       "fixture_id": "markdown_headings_and_paragraphs",
+      "language": "zig"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "c"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "csharp"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "dart"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "elixir"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "go"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "java"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "kotlin_android"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "node"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "php"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "python"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "ruby"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "rust"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "swift"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "wasm"
+    },
+    {
+      "fixture_id": "markdown_hidden_excluded_by_default",
+      "language": "zig"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "c"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "csharp"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "dart"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "elixir"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "go"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "java"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "kotlin_android"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "node"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "php"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "python"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "ruby"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "rust"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "swift"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
+      "language": "wasm"
+    },
+    {
+      "fixture_id": "markdown_keep_hidden",
       "language": "zig"
     },
     {

@@ -37,6 +37,14 @@ values = [
   "**/Cargo.toml",
   "docs-site/src/snippets/**",
   "docs-site/src/snippets/generated/**",
+  "plugin/plugin.json",
+  "plugin/mcp.json",
+  "plugin/.pi/**",
+  "plugin/.github/**",
+  ".github/plugin/**",
+  ".cursor-plugin/marketplace.json",
+  ".ai-rulez/.generated-manifest.json",
+  "plugin/.ai-rulez/.generated-manifest.json",
   "docs-site/src/snippets/**",
   "**/_generated/**",
   "**/coverage/**",
@@ -70,6 +78,7 @@ values = [
   ".claude-plugin/marketplace.json",
   ".agents/plugins/marketplace.json",
   "/.ai-rulez-generated.json",
+  "skills/**",
 ]
 
 [[entries]]
@@ -109,6 +118,14 @@ values = [
   "**/Cargo.toml",
   "docs-site/src/snippets/**",
   "docs-site/src/snippets/generated/**",
+  "plugin/plugin.json",
+  "plugin/mcp.json",
+  "plugin/.pi/**",
+  "plugin/.github/**",
+  ".github/plugin/**",
+  ".cursor-plugin/marketplace.json",
+  ".ai-rulez/.generated-manifest.json",
+  "plugin/.ai-rulez/.generated-manifest.json",
   "docs-site/src/snippets/**",
   "**/_generated/**",
   "**/coverage/**",
@@ -142,6 +159,7 @@ values = [
   ".claude-plugin/marketplace.json",
   ".agents/plugins/marketplace.json",
   ".ai-rulez-generated.json",
+  "skills/**",
 ]
 
 [[entries]]
@@ -171,6 +189,14 @@ values = [
   "**/Cargo.toml",
   "docs-site/src/snippets/**",
   "docs-site/src/snippets/generated/**",
+  "plugin/plugin.json",
+  "plugin/mcp.json",
+  "plugin/.pi/**",
+  "plugin/.github/**",
+  ".github/plugin/**",
+  ".cursor-plugin/marketplace.json",
+  ".ai-rulez/.generated-manifest.json",
+  "plugin/.ai-rulez/.generated-manifest.json",
   "docs-site/src/snippets/**",
   "**/_generated/**",
   "**/coverage/**",
@@ -204,6 +230,7 @@ values = [
   ".claude-plugin/marketplace.json",
   ".agents/plugins/marketplace.json",
   ".ai-rulez-generated.json",
+  "skills/**",
 ]
 
 [[entries]]
@@ -233,6 +260,14 @@ values = [
   "**/Cargo.toml",
   "docs-site/src/snippets/**",
   "docs-site/src/snippets/generated/**",
+  "plugin/plugin.json",
+  "plugin/mcp.json",
+  "plugin/.pi/**",
+  "plugin/.github/**",
+  ".github/plugin/**",
+  ".cursor-plugin/marketplace.json",
+  ".ai-rulez/.generated-manifest.json",
+  "plugin/.ai-rulez/.generated-manifest.json",
   "docs-site/src/snippets/**",
   "**/_generated/**",
   "**/coverage/**",
@@ -266,6 +301,7 @@ values = [
   ".claude-plugin/marketplace.json",
   ".agents/plugins/marketplace.json",
   ".ai-rulez-generated.json",
+  "skills/**",
 ]
 
 [[entries]]

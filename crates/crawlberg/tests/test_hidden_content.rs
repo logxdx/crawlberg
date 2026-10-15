@@ -221,9 +221,17 @@ async fn should_exclude_table_parts_with_hidden_content_enabled_or_disabled() {
         assert!(markdown.contains("KeptHeader"), "{markdown}");
         assert!(markdown.contains("KeptCell"), "{markdown}");
         for excluded in [
-            "ExcludedCaption", "ExcludedHeader", "ExcludedCell", "ExcludedRow", "ExcludedBody", "ExcludedFooter",
+            "ExcludedCaption",
+            "ExcludedHeader",
+            "ExcludedCell",
+            "ExcludedRow",
+            "ExcludedBody",
+            "ExcludedFooter",
         ] {
-            assert!(!markdown.contains(excluded), "keep_hidden={keep_hidden}: {excluded}: {markdown}");
+            assert!(
+                !markdown.contains(excluded),
+                "keep_hidden={keep_hidden}: {excluded}: {markdown}"
+            );
         }
     }
 }

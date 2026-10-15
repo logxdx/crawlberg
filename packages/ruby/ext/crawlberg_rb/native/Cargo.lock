@@ -289,9 +289,9 @@ checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
 name = "cc"
-version = "1.5.1"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f360145194ee8e21db5ee7f3fcd4fe52210864c75c985dae33218202c8bbe040"
+checksum = "6651c9ed80effdc7db0ff72512157f901af5e3549e341e24b1dd4887d836d838"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -586,7 +586,7 @@ dependencies = [
  "futures",
  "getrandom 0.3.4",
  "getrandom 0.4.3",
- "html-escape",
+ "html-escape 0.2.15",
  "html-to-markdown-rs",
  "html5ever",
  "http-body-util",
@@ -1133,16 +1133,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c9356095b4b41197bba32173600e1582792cda618f65d12f68e2e77d273413c5"
 
 [[package]]
-name = "html-to-markdown-rs"
-version = "3.17.2"
+name = "html-escape"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee5ad2da135929dd837dbbe626ce6ba3360b9e5bd11ab197048f9896a5c6846f"
+checksum = "491194d601b4fa9fac3c9571e014070a0ad1bc3392d1bc10419695196a8b3cc3"
+
+[[package]]
+name = "html-to-markdown-rs"
+version = "3.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f656348dddd7b560bbfc40f3c1010974baebb614260705cac492a71da4e39b8"
 dependencies = [
  "ahash",
  "astral-tl",
  "base64 0.23.1",
  "bitflags",
- "html-escape",
+ "html-escape 0.3.0",
  "html5ever",
  "image",
  "memchr",
@@ -1679,9 +1685,9 @@ checksum = "4050469837a6ff301cd14c1f8f24f88549e6d548f24f64e2148eb0f72cebc51f"
 
 [[package]]
 name = "magnus"
-version = "0.9.1"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c01bef153b8d0f086991f0e166474a1d57b738221f9a9c11405d498ac95a44d"
+checksum = "b9068710e00d21be762edca59b9c4c8946dbdb29820d4f76ad559afea07982c9"
 dependencies = [
  "magnus-macros",
  "rb-sys",
@@ -2810,7 +2816,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
