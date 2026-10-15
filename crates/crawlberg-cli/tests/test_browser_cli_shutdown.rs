@@ -396,11 +396,26 @@ struct ExternalChrome {
 }
 
 fn external_profile_parent(
-    _chrome: &std::path::Path,
-    _home: Option<&std::path::Path>,
+    chrome: &std::path::Path,
+    home: Option<&std::path::Path>,
     temporary: &std::path::Path,
 ) -> std::path::PathBuf {
-    temporary.to_path_buf()
+    let Ok(relative) = chrome.strip_prefix("/snap") else {
+        return temporary.to_path_buf();
+    };
+    let mut parts = relative.iter().filter_map(|part| part.to_str());
+    let name = match parts.next() {
+        Some("bin") => parts.next().and_then(|application| application.split('.').next()),
+        name => name,
+    };
+    let Some(name) = name.filter(|name| !name.is_empty()) else {
+        return temporary.to_path_buf();
+    };
+    // ~keep Snap's private /tmp hides DevToolsActivePort from this test; its common directory is shared.
+    home.expect("snap Chrome requires HOME for its shared profile")
+        .join("snap")
+        .join(name)
+        .join("common")
 }
 
 #[test]
@@ -461,6 +476,7 @@ impl ExternalChrome {
             .as_nanos();
         let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
         let parent = external_profile_parent(std::path::Path::new(&chrome), home.as_deref(), &std::env::temp_dir());
+        std::fs::create_dir_all(&parent).expect("external Chrome profile parent");
         let profile = parent.join(format!("crawlberg-cli-borrowed-{}-{nonce}", std::process::id()));
         std::fs::create_dir(&profile).expect("external Chrome profile");
         let child = Command::new(chrome)
