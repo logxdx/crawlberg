@@ -2603,7 +2603,6 @@ impl Drop for BrowserPool {
             // ~keep resources so field drops cannot wake invalid I/O handles or tear down the
             // ~keep parent's Chrome. Only child memory is leaked; the parent keeps its cleanup.
             std::mem::forget(Arc::clone(&self.state));
-            std::mem::forget(std::mem::replace(&mut self.launching, Mutex::new(())));
             std::mem::forget(Arc::clone(&self.page_semaphore));
             std::mem::forget(self.shut_down.clone());
             #[cfg(test)]
