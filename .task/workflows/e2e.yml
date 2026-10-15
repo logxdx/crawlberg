@@ -92,6 +92,7 @@ tasks:
       - task: :php:build
       - task: :elixir:build
       - cmd: |
+          bash -eu <<'CRAWLBERG_E2E'
           eval "$(cat .mock-server.env 2>/dev/null)"
           export MOCK_SERVER_URL MOCK_SERVERS
           fixture_exports="$(python3 -c '
@@ -128,6 +129,8 @@ tasks:
           fi
           MOCK_SERVER_URL="$MOCK_SERVER_URL" task brew:e2e:test || overall=$?
           exit $overall
+          CRAWLBERG_E2E
+
 
   test:quick:
     desc: Quick E2E test (Rust only — fastest feedback)
