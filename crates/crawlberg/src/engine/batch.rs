@@ -45,7 +45,7 @@ impl CrawlEngine {
         #[cfg(feature = "browser")]
         let engine = {
             let mut engine = engine;
-            if self.config.cookies_enabled {
+            if self.config.cookies_enabled && self.config.browser.mode != BrowserMode::Never {
                 engine.config.cookie_store = Some(Default::default());
             }
             engine
