@@ -8620,6 +8620,10 @@ mod tests {
 
     #[test]
     fn should_remove_browser_cookies_when_disabled_but_keep_explicit_seed_headers() {
+        use chromiumoxide::cdp::browser_protocol::network::Headers;
+        use super::headers_with_seed_host_headers;
+        use crate::types::CrawlConfig;
+
         let seed = url::Url::parse("https://example.com/").expect("seed URL");
         let headers = Headers::new(serde_json::json!({ "cOoKiE": "hop=1", "Accept": "text/html" }));
         let mut config = CrawlConfig::default();
