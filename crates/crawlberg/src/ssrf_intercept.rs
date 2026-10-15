@@ -3557,6 +3557,14 @@ fn adopt_target(shared: &Shared, info: &TargetInfo) -> Option<TargetId> {
         }
         return None;
     }
+    // ~keep Replayed root creation after park must neither close the reusable page nor reset its generation.
+    if info.target_id == owner.root
+        && registry
+            .owner_of_target(info.target_id.inner())
+            .is_some_and(|existing| Arc::ptr_eq(&existing, &owner))
+    {
+        return None;
+    }
     let ending = owner.ending.load(Ordering::Acquire);
     registry.register_watched(info.target_id.clone(), owner);
     ending.then(|| info.target_id.clone())
