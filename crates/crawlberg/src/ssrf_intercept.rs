@@ -3913,7 +3913,24 @@ async fn answer(browser: &Browser, shared: &Shared, event: &EventRequestPaused, 
             result
         }
         Verdict::Continue(_) if is_response_stage(event) => {
-            browser.execute(ContinueResponseParams::new(request_id)).await.map(drop)
+            let mut params = ContinueResponseParams::new(request_id);
+            if _in_flight.as_ref().is_some_and(|flight| !flight.0.config.cookies_enabled)
+                && let Some(headers) = &event.response_headers
+                && headers.iter().any(|header| header.name.eq_ignore_ascii_case("set-cookie"))
+            {
+                // ~keep Chrome stores redirect cookies before its next request; removing them
+                // ~keep at the response pause enforces cookies_enabled=false within one navigation.
+                params.response_code = event.response_status_code;
+                params.response_phrase = event.response_status_text.clone();
+                params.response_headers = Some(
+                    headers
+                        .iter()
+                        .filter(|header| !header.name.eq_ignore_ascii_case("set-cookie"))
+                        .cloned()
+                        .collect(),
+                );
+            }
+            browser.execute(params).await.map(drop)
         }
         Verdict::Continue(headers) => {
             let mut params = ContinueRequestParams::new(request_id);
