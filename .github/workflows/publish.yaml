@@ -1500,6 +1500,8 @@ jobs:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
           fetch-depth: 0
       - uses: xberg-io/actions/setup-rust@v1
+        with:
+          macos-dynamic-lookup: "false"
       - uses: xberg-io/actions/build-swift-artifactbundle@v1
         id: bundle
         # ~keep Rust otherwise links the iOS archive for 10.0 while current aws-lc objects use
