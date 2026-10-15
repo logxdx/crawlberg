@@ -386,7 +386,7 @@ jobs:
         run: task ci:chrome:runtime
 
       - name: Setup Chrome
-        uses: xberg-io/actions/setup-chrome@7c5c5d0e97742aad77838328385086d7c48735ba
+        uses: xberg-io/actions/setup-chrome@23602a93e64f32d552325d5304540927f27d8794
 
       - name: Setup library paths for FFI bindings
         if: |

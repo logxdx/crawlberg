@@ -175,7 +175,7 @@ jobs:
 
       - name: Setup Chrome
         id: chrome
-        uses: xberg-io/actions/setup-chrome@7c5c5d0e97742aad77838328385086d7c48735ba
+        uses: xberg-io/actions/setup-chrome@23602a93e64f32d552325d5304540927f27d8794
 
       - name: Prepare Chrome app bundle
         id: prepared_chrome
@@ -233,14 +233,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Setup Rust
-        uses: xberg-io/actions/setup-rust@7c5c5d0e97742aad77838328385086d7c48735ba
+        uses: xberg-io/actions/setup-rust@23602a93e64f32d552325d5304540927f27d8794
         with:
           cache-key-prefix: windows-browser
       - name: Install Task
-        uses: xberg-io/actions/install-task@7c5c5d0e97742aad77838328385086d7c48735ba
+        uses: xberg-io/actions/install-task@23602a93e64f32d552325d5304540927f27d8794
       - name: Setup Chrome
         id: chrome
-        uses: xberg-io/actions/setup-chrome@7c5c5d0e97742aad77838328385086d7c48735ba
+        uses: xberg-io/actions/setup-chrome@23602a93e64f32d552325d5304540927f27d8794
       - name: Run Windows browser tests
         run: task rust:test:windows-browser
         shell: bash
@@ -342,7 +342,7 @@ jobs:
       # ~keep binaries. The direct action revision and requested versions are pinned, but the action
       # ~keep still uses a nested setup-uv tag and downloads these tools without repo-pinned digests.
       - name: Install generated-file formatters
-        uses: xberg-io/actions/setup-c-cpp-tools@186952571503f5d7af97675e2cb88d0344e9b9df
+        uses: xberg-io/actions/setup-c-cpp-tools@23602a93e64f32d552325d5304540927f27d8794
         with:
           clang-format-version: "22.1.8"
           install-cppcheck: "false"
@@ -356,9 +356,9 @@ jobs:
       # ~keep the archive against a checksum fetched from the same release, while its nested cache
       # ~keep action and that mutable checksum asset remain external trust boundaries.
       - name: Install Poly
-        uses: Goldziher/poly@601463a7592beb1e3f00b18816aea4e15b0d7007
+        uses: Goldziher/poly@8a85d746736986ce80ae4a2315c15c27e5844d28
         with:
-          version: "0.28.2"
+          version: "0.29.0"
 
       - name: Install alef
         uses: xberg-io/actions/install-alef@v1
