@@ -99,6 +99,9 @@ pub struct ContentConfig {
     pub compact_tables: bool,
     /// HTML elements whose inline images stay images instead of alt text. Default: `[]`.
     pub keep_inline_images_in: Vec<String>,
+    /// Keep hidden elements, including body templates, in converted output. Default: `false`.
+    /// Scripts and styles remain excluded; explicit exclusions and image settings still apply.
+    pub keep_hidden: bool,
 }
 
 impl Default for ContentConfig {
@@ -121,6 +124,7 @@ impl Default for ContentConfig {
             strong_em_symbol: "*".to_owned(),
             compact_tables: false,
             keep_inline_images_in: Vec::new(),
+            keep_hidden: false,
             include_document_structure: true,
             extract_metadata: true,
         }
