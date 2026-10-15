@@ -40,7 +40,7 @@ async fn relay_connection(
 }
 
 async fn relay_worker_frames(
-    client: async_tungstenite::WebSocketStream<tokio::net::TcpStream>,
+    client: async_tungstenite::WebSocketStream<async_tungstenite::tokio::TokioAdapter<tokio::net::TcpStream>>,
     chrome: ActualWorkerSocket,
     rejected: Arc<AtomicBool>,
     mut release_primary: tokio::sync::watch::Receiver<bool>,
@@ -98,9 +98,7 @@ fn record_worker_command(
             primary_forward.store(true, Ordering::Release);
         }
         if value["method"] == "Target.setAutoAttach"
-            && value["sessionId"]
-                .as_str()
-                .is_some_and(|id| lock(workers).contains(id))
+            && value["sessionId"].as_str().is_some_and(|id| lock(workers).contains(id))
             && let Some(id) = value["id"].as_u64()
         {
             lock(calls).insert(id);
