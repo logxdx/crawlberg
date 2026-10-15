@@ -8,11 +8,12 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import AsyncGenerator, Iterator
+from collections.abc import AsyncGenerator, Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -111,7 +112,7 @@ def _workqueue_threads() -> int:
     if not callable(system_proxy_query):
         raise RuntimeError("macOS system proxy query is unavailable")
     # ~keep A missing queue and a contended queue both report ESRCH; initialize before measuring either.
-    system_proxy_query()
+    cast(Callable[[], object], system_proxy_query)()
     proc_pidworkqueueinfo = 12
     workqueue_info = (ctypes.c_uint32 * 4)()
     libproc = ctypes.CDLL("/usr/lib/libproc.dylib", use_errno=True)
