@@ -22,6 +22,8 @@ pub struct HttpFetchService {
     /// The cookies of the crawl this service fetches for, when that crawl keeps cookies.
     #[cfg(feature = "browser")]
     crawl_cookies: Option<Arc<crate::browser::CrawlCookies>>,
+    #[cfg(feature = "browser-native")]
+    native_cookies: Option<crawlberg_browser::adapter::NativeRenderState>,
 }
 
 impl HttpFetchService {
@@ -31,7 +33,15 @@ impl HttpFetchService {
             config: Arc::new(config),
             #[cfg(feature = "browser")]
             crawl_cookies: None,
+            #[cfg(feature = "browser-native")]
+            native_cookies: None,
         }
+    }
+
+    #[cfg(feature = "browser-native")]
+    pub(crate) fn for_native_crawl(mut self, cookies: Option<crawlberg_browser::adapter::NativeRenderState>) -> Self {
+        self.native_cookies = cookies;
+        self
     }
 
     /// Fetch for the crawl that has `crawl_cookies`: each response reports the cookies it set
@@ -207,6 +217,20 @@ async fn do_fetch(service: &HttpFetchService, req: &CrawlRequest) -> Result<Craw
     let sent_user_agent = resolved_user_agent(config, req);
     let client = crate::http::request_client(client, config, &url)?;
     let http_req = apply_headers(client.get(url.to_string()), config, req, &url, &sent_user_agent);
+    #[cfg(feature = "browser-native")]
+    let http_req = if let Some(cookies) = &service.native_cookies {
+        let explicit = req.headers.keys().any(|name| name.eq_ignore_ascii_case("cookie"))
+            || seed_host_headers(config, &url).iter().any(|(name, _)| name.eq_ignore_ascii_case("cookie"));
+        if explicit {
+            http_req
+        } else {
+            // ~keep An empty header suppresses the HTTP jar too: a deleted native cookie
+            // ~keep must not be revived by an older HTTP-only copy.
+            http_req.header(reqwest::header::COOKIE, cookies.request_cookie_header(&url))
+        }
+    } else {
+        http_req
+    };
 
     // ~keep reqwest uses Policy::none(); redirect following is explicit and policy-checked by callers.
     let resp = crate::http::send_with_cookies(http_req, config)
@@ -217,6 +241,13 @@ async fn do_fetch(service: &HttpFetchService, req: &CrawlRequest) -> Result<Craw
     let status = resp.status().as_u16();
     let content_type = content_type_of(&resp);
     let headers = crate::http::build_headers_map(resp.headers());
+    #[cfg(feature = "browser-native")]
+    if let Some(cookies) = &service.native_cookies {
+        for raw in headers.get("set-cookie").into_iter().flatten() {
+            cookies.store_response_cookie(raw, &url);
+        }
+    }
+
 
     // ~keep The crawl's cookies are the one source a browser page reads, and this is the one place
     // ~keep a response fetched without the browser arrives. It reports the cookies it set here,

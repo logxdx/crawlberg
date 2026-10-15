@@ -666,6 +666,24 @@ mod tests {
     }
 
     #[test]
+    fn should_export_browser_cookies_without_widening_partitioned_cookies() {
+        use reqwest::cookie::CookieStore as _;
+        let crawl = CrawlCookies::default();
+        let plain = left("plain", "1");
+        let mut partitioned = left("partitioned", "secret");
+        partitioned.params.partition_key = Some(CookiePartitionKey::new("https://top.example", false));
+        crawl.absorb(&[], &[plain.clone(), partitioned]);
+        let store = crate::net::cookie::PolicyCookieStore::default();
+        crawl.sync_http_store(&[], &store);
+        let url = url::Url::parse("https://example.com/private").expect("test URL");
+        assert_eq!(store.cookies(&url).as_ref().and_then(|value| value.to_str().ok()), Some("plain=1"));
+        let given = crawl.given();
+        crawl.absorb(&given, &[]);
+        crawl.sync_http_store(&given, &store);
+        assert_eq!(store.cookies(&url), None);
+    }
+
+    #[test]
     fn should_send_http_cookie_replacements_to_browser_with_storage_attributes() {
         let crawl = CrawlCookies::default();
         crawl.absorb_http_response(
@@ -679,6 +697,7 @@ mod tests {
         assert_eq!(params.path.as_deref(), Some("/private"));
         assert_eq!(params.secure, Some(true));
         assert_eq!(params.http_only, Some(true));
+        assert_eq!(params.same_site.as_ref().map(AsRef::as_ref), Some("Strict"));
         assert!(params.expires.as_ref().is_some_and(|expiry| *expiry.inner() > 0.0));
         crawl.absorb_http_response("https://example.com/private/action", &set_cookie(&["session=; Path=/private; Max-Age=0"]));
         let given = crawl.given();

@@ -185,6 +185,12 @@ impl CrawlEngine {
         let fetch = crate::tower::HttpFetchService::new(client.clone(), self.config.clone());
         #[cfg(feature = "browser")]
         let fetch = fetch.for_crawl(self.crawl_cookies.clone());
+        #[cfg(feature = "browser-native")]
+        let fetch = fetch.for_native_crawl(
+            (self.config.browser.backend == BrowserBackend::Native)
+                .then(|| self.native_cookies.clone())
+                .flatten(),
+        );
         let service = ServiceBuilder::new()
             .layer(crate::tower::PerDomainRateLimitLayer::new(self.rate_limiter.clone()))
             .layer(

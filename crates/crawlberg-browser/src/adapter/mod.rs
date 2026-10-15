@@ -69,6 +69,16 @@ impl NativeRenderState {
         self.cookie_jar = Arc::clone(&other.cookie_jar);
     }
 
+    /// Store a response cookie in the shared jar using the native storage policy.
+    pub fn store_response_cookie(&self, cookie: &str, url: &url::Url) {
+        self.cookie_jar.set_cookie(cookie, url);
+    }
+
+    /// The cookies the shared jar sends to a top-level HTTP request for `url`.
+    pub fn request_cookie_header(&self, url: &url::Url) -> String {
+        self.cookie_jar.get_cookie_header(url)
+    }
+
     /// ~keep Record the document that initiates the next top-level navigation.
     pub fn set_site_for_cookies(&mut self, url: &str) {
         self.site_for_cookies = url::Url::parse(url).ok();
