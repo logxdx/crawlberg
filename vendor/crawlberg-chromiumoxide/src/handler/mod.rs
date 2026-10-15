@@ -49,6 +49,15 @@ pub mod target_message_future;
 pub(crate) mod termination;
 pub mod viewport;
 
+#[cfg(test)]
+mod target_creation_tests;
+
+#[derive(Debug)]
+struct PendingPage {
+    initiator: OneshotSender<Result<Page>>,
+    started: Instant,
+}
+
 /// The handler that monitors the state of the chromium browser and drives all
 /// the requests and events.
 #[must_use = "streams do nothing unless polled"]
@@ -67,6 +76,8 @@ pub struct Handler {
     target_ids: Vec<TargetId>,
     /// The created and attached targets
     targets: HashMap<TargetId, Target>,
+    /// ~keep A CDP creation reply can arrive before its target-created event.
+    undiscovered_pages: HashMap<TargetId, PendingPage>,
     /// Currently queued in navigations for targets
     navigations: FnvHashMap<NavigationId, NavigationRequest>,
     /// Keeps track of all the current active sessions
@@ -120,6 +131,7 @@ impl Handler {
             browser_contexts,
             target_ids: Default::default(),
             targets: Default::default(),
+            undiscovered_pages: Default::default(),
             navigations: Default::default(),
             sessions: Default::default(),
             conn,
@@ -200,7 +212,7 @@ impl Handler {
 
     /// Received a response to a request.
     fn on_response(&mut self, resp: Response) {
-        if let Some((req, method, _)) = self.pending_commands.remove(&resp.id) {
+        if let Some((req, method, started)) = self.pending_commands.remove(&resp.id) {
             match req {
                 PendingRequest::CreateTarget(tx) => {
                     match to_command_response::<CreateTargetParams>(resp, method) {
@@ -210,8 +222,7 @@ impl Handler {
                                 // initialized
                                 target.set_initiator(tx);
                             } else {
-                                // TODO can this even happen?
-                                panic!("Created target not present")
+                                self.undiscovered_pages.insert(resp.target_id, PendingPage { initiator: tx, started });
                             }
                         }
                         Err(err) => {
@@ -399,6 +410,11 @@ impl Handler {
     ///
     /// Creates a new `Target` instance and keeps track of it
     fn on_target_created(&mut self, event: EventTargetCreated) {
+        // ~keep Discovery and getTargets can announce the same target; replacing it drops
+        // ~keep the initiator and cancels a page still initializing on the existing target.
+        if self.targets.contains_key(&event.target_info.target_id) {
+            return;
+        }
         let browser_ctx = event
             .target_info
             .browser_context_id
@@ -406,7 +422,7 @@ impl Handler {
             .map(BrowserContext::from)
             .filter(|id| self.browser_contexts.contains(id))
             .unwrap_or_else(|| self.default_browser_context.clone());
-        let target = Target::new(
+        let mut target = Target::new(
             event.target_info,
             TargetConfig {
                 ignore_https_errors: self.config.ignore_https_errors,
@@ -418,6 +434,9 @@ impl Handler {
             },
             browser_ctx,
         );
+        if let Some(pending) = self.undiscovered_pages.remove(target.target_id()) {
+            target.set_initiator(pending.initiator);
+        }
         self.target_ids.push(target.target_id().clone());
         self.targets.insert(target.target_id().clone(), target);
     }
@@ -445,6 +464,9 @@ impl Handler {
 
     /// Fired when the target was destroyed in the browser
     fn on_target_destroyed(&mut self, event: EventTargetDestroyed) {
+        if let Some(pending) = self.undiscovered_pages.remove(&event.target_id) {
+            let _ = pending.initiator.send(Err(CdpError::msg("page target was destroyed before discovery")));
+        }
         if let Some(target) = self.targets.remove(&event.target_id) {
             // TODO shutdown?
             if let Some(session) = target.session_id() {
@@ -458,6 +480,14 @@ impl Handler {
     /// Remove all commands where `now` > `timestamp of command starting point +
     /// request timeout` and notify the senders that their request timed out.
     fn evict_timed_out_commands(&mut self, now: Instant) {
+        let expired_pages = self.undiscovered_pages.iter()
+            .filter(|(_, pending)| now > pending.started + self.config.request_timeout)
+            .map(|(target, _)| target.clone()).collect::<Vec<_>>();
+        for target in expired_pages {
+            if let Some(pending) = self.undiscovered_pages.remove(&target) {
+                let _ = pending.initiator.send(Err(CdpError::Timeout));
+            }
+        }
         let timed_out = self
             .pending_commands
             .iter()
