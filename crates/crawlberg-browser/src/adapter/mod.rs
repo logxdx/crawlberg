@@ -64,12 +64,12 @@ impl NativeRenderState {
         }
     }
 
-    /// ~keep Record the document that initiates the next top-level navigation.
     /// Share a crawl's complete cookie jar while retaining this navigation's initiating site.
     pub fn share_cookies_from(&mut self, other: &Self) {
         self.cookie_jar = Arc::clone(&other.cookie_jar);
     }
 
+    /// ~keep Record the document that initiates the next top-level navigation.
     pub fn set_site_for_cookies(&mut self, url: &str) {
         self.site_for_cookies = url::Url::parse(url).ok();
     }
