@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/ci/rust/run-unit-tests.sh"
 NOTICE_FLAG = "-C link-arg=-Wl,-no_warn_eh_frame_too_large"
 BASE_FLAGS = "-D warnings -C link-arg=-undefined -C link-arg=dynamic_lookup"
-CARGO_STUB = r'''#!/usr/bin/env python3
+CARGO_STUB = r"""#!/usr/bin/env python3
 import json
 import os
 import pathlib
@@ -27,7 +27,7 @@ with path.open("a") as output:
         "warnings": os.environ.get("CARGO_BUILD_WARNINGS"),
     }) + "\n")
 sys.exit(37 if len(rows) + 1 == int(os.environ["FAIL_CALL"]) else 0)
-'''
+"""
 
 
 class RustTestLinkerTests(unittest.TestCase):
