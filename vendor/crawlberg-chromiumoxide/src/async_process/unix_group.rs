@@ -253,6 +253,34 @@ mod ownership_tests {
     use super::*;
 
     #[test]
+    fn a_guardian_exit_does_not_report_a_live_member_stopped() {
+        let group = Group::start_script("trap 'exit 0' TERM; printf .; /bin/sleep 300")
+            .expect("guardian that exits without killing its group");
+        let (mut ready, member_ready) = std::os::unix::net::UnixStream::pair().expect("member readiness socket");
+        ready.set_read_timeout(Some(OWNER_PROBE_TIMEOUT)).expect("readiness timeout");
+        let mut member = Command::new("/bin/sh")
+            .args(["-c", "trap '' TERM; printf .; exec /bin/sleep 300"])
+            .stdout(std::process::Stdio::from(std::os::fd::OwnedFd::from(member_ready)))
+            .process_group(i32::try_from(group.id()).expect("group fits pid"))
+            .spawn()
+            .expect("member that ignores TERM");
+        acknowledge_ready(&mut ready).expect("member must install its TERM handler before stop");
+        let mut bystander = Command::new("/bin/sleep").arg("300").spawn().expect("unrelated process");
+
+        let stopped = group.stop(DROP_TIMEOUT);
+        let member_ended = member.try_wait().expect("member status").is_some();
+        let bystander_running = bystander.try_wait().expect("bystander status").is_none();
+        let _ = member.kill();
+        let _ = member.wait();
+        let _ = bystander.kill();
+        let _ = bystander.wait();
+
+        assert!(stopped, "the owner must finish stopping its group");
+        assert!(member_ended, "the guardian's exit alone must not report its live member stopped");
+        assert!(bystander_running, "stopping the group must preserve unrelated processes");
+    }
+
+    #[test]
     fn an_inherited_group_refuses_signal_and_stop_without_touching_its_owner() {
         let mut group = Group::start().expect("guardian");
         let mut leaf = Command::new("/bin/sleep")
