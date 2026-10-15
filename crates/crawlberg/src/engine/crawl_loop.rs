@@ -738,13 +738,13 @@ impl CrawlEngine {
         drive.join_set.spawn(async move {
             let _permit = permit;
             let _activity = activity;
-            let client = build_client(&engine.config).map_err(|error| (hop.entry.clone(), error))?;
+            let client = build_client(&engine.config).map_err(|error| Box::new((hop.entry.clone(), error)))?;
             let mut policy = RedirectPolicy::from_state(&engine, &client, &exclude, &include, hop.policy);
             let refused = hop
                 .cursor
                 .prepare(&mut policy)
                 .await
-                .map_err(|error| (hop.entry.clone(), error))?;
+                .map_err(|error| Box::new((hop.entry.clone(), error)))?;
             if refused.is_some() {
                 return Ok(CrawlHopResult::Complete(FetchOutcome::Skipped(hop.entry)));
             }
@@ -782,7 +782,7 @@ impl CrawlEngine {
                     Ok(grant) => grant,
                     Err(error) => {
                         let error = error.into_error(&entry.url);
-                        drive.join_set.spawn(async move { Err((entry, error)) });
+                        drive.join_set.spawn(async move { Err(Box::new((entry, error))) });
                         return Ok(());
                     }
                 };
@@ -811,7 +811,7 @@ impl CrawlEngine {
 
     async fn absorb_hop_result(
         &self,
-        result: Result<Result<CrawlHopResult, (FrontierEntry, CrawlError)>, tokio::task::JoinError>,
+        result: Result<HopOutput, tokio::task::JoinError>,
         drive: &mut LoopDrive<'_>,
         state: &mut CrawlState,
         context: &LoopContext<'_>,
@@ -849,7 +849,7 @@ impl CrawlEngine {
             Ok(Ok(CrawlHopResult::Complete(outcome))) => {
                 self.absorb_fetch_result(Ok(Ok(outcome)), drive, state, context).await
             }
-            Ok(Err(error)) => self.absorb_fetch_result(Ok(Err(error)), drive, state, context).await,
+            Ok(Err(error)) => self.absorb_fetch_result(Ok(Err(*error)), drive, state, context).await,
             Err(error) => self.absorb_fetch_result(Err(error), drive, state, context).await,
         }
     }
@@ -992,7 +992,8 @@ struct CrawlHop {
     policy: RedirectPolicyState,
 }
 
-type HopOutput = Result<CrawlHopResult, (FrontierEntry, CrawlError)>;
+type HopError = Box<(FrontierEntry, CrawlError)>;
+type HopOutput = Result<CrawlHopResult, HopError>;
 
 enum HopWork {
     Ready(Box<CrawlHop>),
@@ -1020,7 +1021,7 @@ struct LoopDrive<'a> {
     /// Entries whose fetch task is running, kept so an early exit can return them.
     in_flight: &'a mut Vec<FrontierEntry>,
     /// The running fetches. Dropping it, as every exit from the loop does, aborts them.
-    join_set: JoinSet<Result<CrawlHopResult, (FrontierEntry, CrawlError)>>,
+    join_set: JoinSet<HopOutput>,
     host_turns: HostTurns<HopWork>,
     prepare_backlog: std::collections::VecDeque<CrawlHop>,
     semaphore: Arc<Semaphore>,
@@ -1109,13 +1110,13 @@ async fn perform_hop(
     exclude: Arc<[PathPattern]>,
     include: Arc<[PathPattern]>,
 ) -> HopOutput {
-    let client = build_client(&engine.config).map_err(|error| (hop.entry.clone(), error))?;
+    let client = build_client(&engine.config).map_err(|error| Box::new((hop.entry.clone(), error)))?;
     let mut policy = RedirectPolicy::from_state(&engine, &client, &exclude, &include, hop.policy);
     match hop
         .cursor
         .step(&engine, Some(&mut policy), None, Hop::Fetch)
         .await
-        .map_err(|error| (hop.entry.clone(), error))?
+        .map_err(|error| Box::new((hop.entry.clone(), error)))?
     {
         RedirectStep::Continue(cursor) => Ok(CrawlHopResult::Continue(CrawlHop {
             entry: hop.entry,
@@ -1139,7 +1140,7 @@ async fn extract_outcome(
     entry: FrontierEntry,
     outcome: RedirectOutcome,
     redirect_count: usize,
-) -> Result<FetchOutcome, (FrontierEntry, CrawlError)> {
+) -> Result<FetchOutcome, HopError> {
     let RedirectOutcome {
         final_url,
         final_response: resp,
@@ -1186,11 +1187,11 @@ async fn extract_outcome(
         )
     })
     .await
-    .map_err(|e| (entry.clone(), CrawlError::other(format!("extraction task failed: {e}"))))?;
+    .map_err(|e| Box::new((entry.clone(), CrawlError::other(format!("extraction task failed: {e}")))))?;
 
     if !page_ext.is_binary && !page_ext.is_pdf {
         let document_url = Url::parse(&final_url)
-            .map_err(|error| (entry.clone(), CrawlError::other(format!("invalid final URL: {error}"))))?;
+            .map_err(|error| Box::new((entry.clone(), CrawlError::other(format!("invalid final URL: {error}")))))?;
         crate::html::append_refresh_header_link(&mut page_ext.extraction.links, &headers, &document_url);
     }
     Ok(FetchOutcome::Fetched(Box::new(FetchResult {

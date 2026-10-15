@@ -1027,8 +1027,8 @@ pub(crate) fn refresh_redirect_target<R: RedirectSignals>(
 ) -> Option<(Url, String)> {
     let unseen = |target: Url| unseen_key(target.as_str()).map(|key| (target, key));
     refresh_header_target(resp, current_url)
-        .and_then(&unseen)
-        .or_else(|| meta_refresh_target(resp, current_url, page_scan).and_then(&unseen))
+        .and_then(unseen)
+        .or_else(|| meta_refresh_target(resp, current_url, page_scan).and_then(unseen))
 }
 
 /// `target` resolved against `base`, or `None` when it does not resolve. `source` names the
