@@ -4,6 +4,13 @@ All notable changes to crawlberg are documented here.
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-10-16
+
+### Fixed
+
+- WebAssembly accepts gzip, deflate and Brotli responses already decompressed by Fetch while continuing to reject unsupported or partially decoded content encodings.
+- Worker requests retain their watched page's SSRF policy when Chrome delivers the request before the worker lifecycle event.
+
 ## [1.11.0] - 2026-10-15
 
 ### Upgrading
