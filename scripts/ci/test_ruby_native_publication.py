@@ -9,6 +9,7 @@ import tarfile
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import yaml
 
@@ -34,11 +35,11 @@ class RubyNativePublicationTests(unittest.TestCase):
             check=True,
         )
         self.host = json.loads(result.stdout)
-        self.host["platform"] = (
-            self.host["platform"].split("-darwin")[0] + "-darwin"
-            if "-darwin" in self.host["platform"]
-            else self.host["platform"]
-        )
+        platform = self.host["platform"]
+        if "-darwin" in platform:
+            self.host["platform"] = platform.split("-darwin")[0] + "-darwin"
+        elif platform.endswith("-linux-gnu"):
+            self.host["platform"] = platform.removesuffix("-gnu")
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.package = Path(self.directory.name)
@@ -73,6 +74,25 @@ class RubyNativePublicationTests(unittest.TestCase):
             text=True,
             check=False,
         )
+
+    def test_host_fixture_normalizes_gnu_and_darwin_only(self) -> None:
+        for platform, expected in (
+            ("x86_64-linux-gnu", "x86_64-linux"),
+            ("aarch64-linux-gnu", "aarch64-linux"),
+            ("arm64-darwin-24", "arm64-darwin"),
+            ("x86_64-linux-musl", "x86_64-linux-musl"),
+            ("x64-mingw-ucrt", "x64-mingw-ucrt"),
+            ("arm-linux-gnueabihf", "arm-linux-gnueabihf"),
+        ):
+            with self.subTest(platform=platform):
+                fixture = RubyNativePublicationTests("test_native_gem_contains_exact_extension_and_only_its_ruby_abi")
+                self.addCleanup(fixture.doCleanups)
+                result = subprocess.CompletedProcess(
+                    ["ruby"], 0, json.dumps({"platform": platform, "abi": "3.4.0", "suffix": "so"})
+                )
+                with patch.object(subprocess, "run", return_value=result):
+                    fixture.setUp()
+                assert fixture.host["platform"] == expected
 
     def test_native_gem_contains_exact_extension_and_only_its_ruby_abi(self) -> None:
         result = self.package_native()
