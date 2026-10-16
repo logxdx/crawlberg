@@ -15,7 +15,7 @@ use crate::CrawlEngineHandle;
 #[pyfunction]
 #[pyo3(signature = (engine))]
 pub fn shutdown_engine<'py>(py: Python<'py>, engine: CrawlEngineHandle) -> PyResult<Bound<'py, PyAny>> {
-    pyo3_async_runtimes::tokio::future_into_py(py, async move {
+    crate::alef_async_runtime::future_into_py(py, async move {
         crawlberg::shutdown_engine((*engine.inner).clone()).await;
         Ok(())
     })

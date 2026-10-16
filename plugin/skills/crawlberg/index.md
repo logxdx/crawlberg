@@ -1,0 +1,10 @@
+<!--
+AI-RULEZ :: GENERATED FILE — DO NOT EDIT
+Content-Hash: blake3:7c3f5f8b6938ceff6457ed1557eb82d956de699d844380c85ca3209ade2b5ee2
+Source-Hash: blake3:2fb291f60784050b5993ed627070aa79f103ef9c1198aee94730a10a871ba894
+Schema-Version: v1
+-->
+
+# Concepts
+
+* [Crawlberg](SKILL.md) - Crawl, scrape, and convert websites to Markdown using the local crawlberg CLI and its MCP server. Use when the user wants to fetch a page, follow links across a domain, enumerate URLs, or drive a real browser. Covers installation, the subcommands (scrape, crawl, map, interact, batch-scrape, batch-crawl, download, citations, version, mcp, serve), output formats (JSON + Markdown), browser fallback, and when to prefer the MCP server over shelling out.

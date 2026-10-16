@@ -46,13 +46,24 @@ mod page;
 mod session;
 pub mod target;
 pub mod target_message_future;
+pub(crate) mod termination;
 pub mod viewport;
+
+#[cfg(test)]
+mod target_creation_tests;
+
+#[derive(Debug)]
+struct PendingPage {
+    initiator: OneshotSender<Result<Page>>,
+    started: Instant,
+}
 
 /// The handler that monitors the state of the chromium browser and drives all
 /// the requests and events.
 #[must_use = "streams do nothing unless polled"]
 #[derive(Debug)]
 pub struct Handler {
+    pub(crate) owned_termination: std::sync::Arc<termination::OwnedTermination>,
     /// Commands that are being processed and awaiting a response from the
     /// chromium instance together with the timestamp when the request
     /// started.
@@ -65,6 +76,8 @@ pub struct Handler {
     target_ids: Vec<TargetId>,
     /// The created and attached targets
     targets: HashMap<TargetId, Target>,
+    /// ~keep A CDP creation reply can arrive before its target-created event.
+    undiscovered_pages: HashMap<TargetId, PendingPage>,
     /// Currently queued in navigations for targets
     navigations: FnvHashMap<NavigationId, NavigationRequest>,
     /// Keeps track of all the current active sessions
@@ -72,7 +85,7 @@ pub struct Handler {
     /// There can be multiple sessions per target.
     sessions: HashMap<SessionId, Session>,
     /// The websocket connection to the chromium instance
-    conn: Connection<CdpEventMessage>,
+    conn: HandlerConnection,
     /// Evicts timed out requests periodically
     evict_command_timeout: PeriodicJob,
     /// The internal identifier for a specific navigation
@@ -86,10 +99,19 @@ pub struct Handler {
 }
 
 impl Handler {
+    pub fn observed_owned_termination(&self) -> bool {
+        self.owned_termination.observed()
+    }
+
     /// Create a new `Handler` that drives the connection and listens for
     /// messages on the receiver `rx`.
-    pub(crate) fn new(
-        mut conn: Connection<CdpEventMessage>,
+    pub(crate) fn new(conn: Connection<CdpEventMessage>, rx: Receiver<HandlerMessage>, config: HandlerConfig) -> Self {
+        Self::with_connection(HandlerConnection::WebSocket(conn), rx, config)
+    }
+
+    /// Like [`Self::new`], on the connection that the launch chose.
+    pub(crate) fn with_connection(
+        mut conn: HandlerConnection,
         rx: Receiver<HandlerMessage>,
         config: HandlerConfig,
     ) -> Self {
@@ -109,6 +131,7 @@ impl Handler {
             browser_contexts,
             target_ids: Default::default(),
             targets: Default::default(),
+            undiscovered_pages: Default::default(),
             navigations: Default::default(),
             sessions: Default::default(),
             conn,
@@ -117,6 +140,7 @@ impl Handler {
             config,
             event_listeners: Default::default(),
             closing: false,
+            owned_termination: std::sync::Arc::default(),
         }
     }
 
@@ -188,7 +212,7 @@ impl Handler {
 
     /// Received a response to a request.
     fn on_response(&mut self, resp: Response) {
-        if let Some((req, method, _)) = self.pending_commands.remove(&resp.id) {
+        if let Some((req, method, started)) = self.pending_commands.remove(&resp.id) {
             match req {
                 PendingRequest::CreateTarget(tx) => {
                     match to_command_response::<CreateTargetParams>(resp, method) {
@@ -198,8 +222,8 @@ impl Handler {
                                 // initialized
                                 target.set_initiator(tx);
                             } else {
-                                // TODO can this even happen?
-                                panic!("Created target not present")
+                                self.undiscovered_pages
+                                    .insert(resp.target_id.clone(), PendingPage { initiator: tx, started });
                             }
                         }
                         Err(err) => {
@@ -387,6 +411,11 @@ impl Handler {
     ///
     /// Creates a new `Target` instance and keeps track of it
     fn on_target_created(&mut self, event: EventTargetCreated) {
+        // ~keep Discovery and getTargets can announce the same target; replacing it drops
+        // ~keep the initiator and cancels a page still initializing on the existing target.
+        if self.targets.contains_key(&event.target_info.target_id) {
+            return;
+        }
         let browser_ctx = event
             .target_info
             .browser_context_id
@@ -394,7 +423,7 @@ impl Handler {
             .map(BrowserContext::from)
             .filter(|id| self.browser_contexts.contains(id))
             .unwrap_or_else(|| self.default_browser_context.clone());
-        let target = Target::new(
+        let mut target = Target::new(
             event.target_info,
             TargetConfig {
                 ignore_https_errors: self.config.ignore_https_errors,
@@ -406,6 +435,9 @@ impl Handler {
             },
             browser_ctx,
         );
+        if let Some(pending) = self.undiscovered_pages.remove(target.target_id()) {
+            target.set_initiator(pending.initiator);
+        }
         self.target_ids.push(target.target_id().clone());
         self.targets.insert(target.target_id().clone(), target);
     }
@@ -433,6 +465,11 @@ impl Handler {
 
     /// Fired when the target was destroyed in the browser
     fn on_target_destroyed(&mut self, event: EventTargetDestroyed) {
+        if let Some(pending) = self.undiscovered_pages.remove(&event.target_id) {
+            let _ = pending
+                .initiator
+                .send(Err(CdpError::msg("page target was destroyed before discovery")));
+        }
         if let Some(target) = self.targets.remove(&event.target_id) {
             // TODO shutdown?
             if let Some(session) = target.session_id() {
@@ -446,6 +483,17 @@ impl Handler {
     /// Remove all commands where `now` > `timestamp of command starting point +
     /// request timeout` and notify the senders that their request timed out.
     fn evict_timed_out_commands(&mut self, now: Instant) {
+        let expired_pages = self
+            .undiscovered_pages
+            .iter()
+            .filter(|(_, pending)| now > pending.started + self.config.request_timeout)
+            .map(|(target, _)| target.clone())
+            .collect::<Vec<_>>();
+        for target in expired_pages {
+            if let Some(pending) = self.undiscovered_pages.remove(&target) {
+                let _ = pending.initiator.send(Err(CdpError::Timeout));
+            }
+        }
         let timed_out = self
             .pending_commands
             .iter()
@@ -562,20 +610,25 @@ impl Stream for Handler {
 
                     // poll the target's event listeners
                     target.event_listeners_mut().poll(cx);
-                    // poll the handler's event listeners
-                    pin.event_listeners_mut().poll(cx);
 
                     pin.targets.insert(id, target);
                     pin.target_ids.push(target_id);
                 }
             }
 
+            // Poll the handler's event listeners on every pass, with or without a target: the
+            // event that reports a browser's last target destroyed is queued when no target is left.
+            pin.event_listeners_mut().poll(cx);
+
             let mut done = true;
 
             loop {
                 let ev = match Pin::new(&mut pin.conn).poll_next(cx) {
                     Poll::Ready(Some(ev)) => ev,
-                    Poll::Ready(None) => return Poll::Ready(None),
+                    Poll::Ready(None) => {
+                        pin.owned_termination.observe(None);
+                        return Poll::Ready(None);
+                    }
                     Poll::Pending => break,
                 };
                 match ev {
@@ -597,7 +650,9 @@ impl Stream for Handler {
                         }
                     }
                     Err(err) => {
-                        tracing::error!("WS Connection error: {:?}", err);
+                        if !pin.owned_termination.observe(Some(&err)) {
+                            tracing::error!("WS Connection error: {:?}", err);
+                        }
                         return Poll::Ready(Some(Err(err)));
                     }
                 }
@@ -613,6 +668,47 @@ impl Stream for Handler {
                 // no events/responses were read from the websocket
                 return Poll::Pending;
             }
+        }
+    }
+}
+
+/// The connection that the handler drives. It is chosen one time, when the handler is made: a
+/// browser with a debugging port, and a browser that the caller connects to, have the
+/// WebSocket. Only a browser that was launched on a private debugging pipe has the pipe.
+#[derive(Debug)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "a handler holds one connection for its whole life, and a box would put the WebSocket behind a pointer that it does not have without the pipe"
+)]
+pub(crate) enum HandlerConnection {
+    WebSocket(Connection<CdpEventMessage>),
+    #[cfg(unix)]
+    Pipe(crate::pipe::PipeConnection<CdpEventMessage>),
+}
+
+impl HandlerConnection {
+    fn submit_command(
+        &mut self,
+        method: MethodId,
+        session_id: Option<SessionId>,
+        params: serde_json::Value,
+    ) -> serde_json::Result<CallId> {
+        match self {
+            Self::WebSocket(conn) => conn.submit_command(method, session_id, params),
+            #[cfg(unix)]
+            Self::Pipe(conn) => conn.submit_command(method, session_id, params),
+        }
+    }
+}
+
+impl Stream for HandlerConnection {
+    type Item = Result<Message<CdpEventMessage>>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        match self.get_mut() {
+            Self::WebSocket(conn) => Pin::new(conn).poll_next(cx),
+            #[cfg(unix)]
+            Self::Pipe(conn) => Pin::new(conn).poll_next(cx),
         }
     }
 }
@@ -731,4 +827,97 @@ pub(crate) enum HandlerMessage {
     GetPage(TargetId, OneshotSender<Option<Page>>),
     AddEventListener(EventListenerRequest),
     CloseBrowser(OneshotSender<Result<CloseReturns>>),
+}
+
+/// A browser that is not launched on a private debugging pipe never gets the pipe connection.
+/// Each test fails if its browser gets a handler on the pipe, or can open a client of a pipe.
+#[cfg(all(test, unix))]
+mod connection_tests {
+    use std::os::unix::fs::PermissionsExt;
+
+    use futures::StreamExt;
+
+    use super::HandlerConnection;
+    use crate::browser::{Browser, BrowserConfig};
+    use crate::error::CdpError;
+
+    /// The address of a WebSocket server that accepts every client and reads until it closes.
+    async fn websocket_server() -> std::net::SocketAddr {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("listener");
+        let address = listener.local_addr().expect("listener address");
+        tokio::spawn(async move {
+            while let Ok((stream, _)) = listener.accept().await {
+                tokio::spawn(async move {
+                    if let Ok(mut socket) = async_tungstenite::tokio::accept_async(stream).await {
+                        while let Some(Ok(_)) = socket.next().await {}
+                    }
+                });
+            }
+        });
+        address
+    }
+
+    #[tokio::test]
+    async fn a_browser_that_the_caller_connects_to_has_the_websocket_connection() {
+        let address = websocket_server().await;
+
+        let (browser, handler) = Browser::connect(format!("ws://{address}/devtools/browser/external"))
+            .await
+            .expect("connect");
+
+        assert!(
+            matches!(handler.conn, HandlerConnection::WebSocket(_)),
+            "the handler of a browser that the caller connects to must drive the WebSocket"
+        );
+        assert!(
+            browser.pipe_client().is_none(),
+            "a browser that the caller connects to has no private pipe"
+        );
+    }
+
+    /// The launch is the launch of a caller that sets nothing. The executable is a script that
+    /// prints a WebSocket address as Chrome does and then waits, so the test needs no Chrome.
+    #[tokio::test]
+    async fn a_default_launch_has_the_websocket_connection_and_no_pipe() {
+        let address = websocket_server().await;
+        let directory = std::env::temp_dir().join(format!("chromiumoxide-default-launch-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).expect("test directory");
+        let executable = directory.join("chrome");
+        let script = format!(
+            "#!/bin/sh\n\
+             echo 'DevTools listening on ws://{address}/devtools/browser/default' >&2\n\
+             exec sleep 60\n"
+        );
+        std::fs::write(&executable, script).expect("executable");
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o755)).expect("executable mode");
+
+        let (mut browser, handler) = loop {
+            let config = BrowserConfig::builder()
+                .chrome_executable(&executable)
+                .user_data_dir(directory.join("profile"))
+                .build()
+                .expect("default config");
+            match Browser::launch(config).await {
+                // ~keep A test on another thread that forks while the script is written holds
+                // ~keep the script open for writing until its child calls `exec`.
+                Err(CdpError::Io(error)) if error.kind() == std::io::ErrorKind::ExecutableFileBusy => {
+                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                }
+                launched => break launched.expect("default launch"),
+            }
+        };
+        let websocket = matches!(handler.conn, HandlerConnection::WebSocket(_));
+        let no_pipe = browser.pipe_client().is_none();
+        let address_of_the_browser = browser.websocket_address().clone();
+        let _ = browser.kill().await;
+        let _ = browser.wait().await;
+        let _ = std::fs::remove_dir_all(&directory);
+
+        assert!(websocket, "the handler of a default launch must drive the WebSocket");
+        assert!(no_pipe, "a default launch has no private pipe");
+        assert!(
+            address_of_the_browser.starts_with("ws://"),
+            "a default launch has a WebSocket address: {address_of_the_browser}"
+        );
+    }
 }

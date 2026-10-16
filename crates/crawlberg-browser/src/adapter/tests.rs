@@ -937,6 +937,7 @@ fn header_bearing_debug_renderings() -> Vec<(&'static str, String, bool)> {
         network_events: vec![native_event.clone()],
         cookies: Vec::new(),
         redirects: 0,
+        charset: None,
     };
     let response = crate::net::client::Response {
         url: url.clone(),
@@ -1006,4 +1007,84 @@ fn only_a_response_header_map_keeps_a_value() {
             "{what}: a response header value must print and a request one must not: {rendered}"
         );
     }
+}
+
+/// A decoder that answers with a page of its own, so a test can see that the backend used it.
+fn marker_decoder(_content_type: &str, _url: &str, _body: &[u8]) -> (String, Option<String>) {
+    (
+        "<html><body><p>decoded by the test</p></body></html>".to_owned(),
+        Some("x-test".to_owned()),
+    )
+}
+
+#[tokio::test]
+async fn a_render_reads_the_document_through_the_configured_decoder() {
+    let server = TestServer::start().await;
+    let executor =
+        NativeBrowserExecutor::new(NativeBrowserExecutorConfig::with_workers(1)).expect("executor should start");
+    let url = format!("{}/decoded", server.base_url);
+    let config = NativeBrowserConfig {
+        document_decoder: Some(marker_decoder),
+        ..test_config()
+    };
+
+    let rendered = executor.render_url(&url, &config).await.expect("render should succeed");
+    assert!(
+        rendered.html.contains("decoded by the test"),
+        "the document must be the decoder's text: {}",
+        rendered.html
+    );
+    assert_eq!(rendered.charset.as_deref(), Some("x-test"));
+
+    let plain = executor
+        .render_url(&url, &test_config())
+        .await
+        .expect("render should succeed");
+    assert!(
+        !plain.html.contains("decoded by the test"),
+        "with no decoder the document is the server's"
+    );
+    assert_eq!(plain.charset, None, "with no decoder no character set is reported");
+}
+
+#[tokio::test]
+async fn an_interaction_reads_the_document_through_the_configured_decoder() {
+    let server = TestServer::start().await;
+    let executor =
+        NativeBrowserExecutor::new(NativeBrowserExecutorConfig::with_workers(1)).expect("executor should start");
+    let url = format!("{}/decoded", server.base_url);
+    let config = NativeBrowserConfig {
+        document_decoder: Some(marker_decoder),
+        ..test_config()
+    };
+
+    let interaction = executor
+        .interact_url(&url, &config, &[NativePageAction::Scrape], None)
+        .await
+        .expect("interact should succeed");
+    assert!(
+        interaction.final_html.contains("decoded by the test"),
+        "the document must be the decoder's text: {}",
+        interaction.final_html
+    );
+}
+
+#[test]
+fn should_omit_strict_cookies_from_native_http_headers_after_cross_site_navigation() {
+    let mut state = super::NativeRenderState::new(&[]);
+    let target = url::Url::parse("https://target.example/").expect("target URL");
+    state.store_response_cookie("strict=1; Path=/; Secure; SameSite=Strict", &target);
+    state.store_response_cookie("lax=1; Path=/; Secure; SameSite=Lax", &target);
+    state.set_site_for_cookies("https://other.example/");
+    let cross_site_navigation = state.clone();
+    assert_eq!(cross_site_navigation.request_cookie_header(&target), "lax=1");
+    state.set_site_for_cookies("https://target.example/start");
+    let mut cookies = state
+        .request_cookie_header(&target)
+        .split("; ")
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    cookies.sort();
+    assert_eq!(cookies, ["lax=1", "strict=1"]);
+    assert_eq!(cross_site_navigation.request_cookie_header(&target), "lax=1");
 }

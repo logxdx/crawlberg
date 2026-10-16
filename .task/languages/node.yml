@@ -31,13 +31,13 @@ tasks:
     desc: Build Node/TypeScript native bindings in debug mode
     dir: crates/crawlberg-node
     cmds:
-      - pnpm exec napi build --platform
+      - pnpm exec napi build --platform --dts index.native.d.ts
 
   build:release:
     desc: Build Node/TypeScript native bindings in release mode (optimized)
     dir: crates/crawlberg-node
     cmds:
-      - pnpm exec napi build --platform --release --strip
+      - pnpm exec napi build --platform --dts index.native.d.ts --release --strip
 
   build:ci:
     desc: Build Node/TypeScript native bindings in CI mode (with debug info)
@@ -46,7 +46,7 @@ tasks:
           cd crates/crawlberg-node
           corepack enable
           pnpm install -r
-          pnpm exec napi build --platform --release
+          pnpm exec napi build --platform --dts index.native.d.ts --release
 
   build:bindings:
     desc: Build Node bindings for benchmarking
