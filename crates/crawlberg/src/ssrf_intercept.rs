@@ -3518,10 +3518,13 @@ fn install_watch(registry: &mut Registry, page: &Arc<WatchedPage>) -> Result<(),
 /// ~keep `Target.closeTarget` on it closes its page. Nothing is stored for it and it is never
 /// ~keep returned for closing.
 fn adopt_target(shared: &Shared, info: &TargetInfo) -> Option<TargetId> {
+    adopt_target_in_registry(&mut lock(&shared.registry), info)
+}
+
+fn adopt_target_in_registry(registry: &mut Registry, info: &TargetInfo) -> Option<TargetId> {
     if info.r#type == "tab" {
         return None;
     }
-    let mut registry = lock(&shared.registry);
     if info.r#type == "iframe" {
         registry.structural_targets.insert(info.target_id.clone());
     }
@@ -3852,6 +3855,31 @@ async fn end_watch(
     Done::Ended(page, keep_root, done)
 }
 
+async fn attribute_worker(browser: &Browser, shared: &Shared, frame: &FrameId) -> Option<Owner> {
+    let target = TargetId::new(frame.inner());
+    let TargetLookup::Live(info) = live_target_info(browser, shared, &target).await else {
+        return None;
+    };
+    if !matches!(info.r#type.as_str(), "worker" | "shared_worker" | "service_worker") {
+        return None;
+    }
+    let (owner, close) = {
+        let mut registry = lock(&shared.registry);
+        // ~keep Another CDP connection can register or quarantine this target during the census.
+        // ~keep Reuse its current generation and ownership instead of adopting a stale snapshot.
+        if registry.ownership.contains_key(&target) {
+            return registry.owner_of_frame(frame);
+        }
+        let close = adopt_target_in_registry(&mut registry, &info);
+        (registry.owner_of_frame(frame), close)
+    };
+    if let Some(target) = close {
+        let _ = browser.execute(CloseTargetParams::new(target)).await;
+        return None;
+    }
+    owner
+}
+
 /// Who a request belongs to, found through the frame that sent it. A missing event-index entry
 /// gets one bounded, deterministic lookup; timeout or overflow remains unknown and fail-closed.
 async fn attribute(browser: &Browser, shared: &Shared, frame: &FrameId) -> Option<Owner> {
@@ -3885,6 +3913,9 @@ async fn attribute(browser: &Browser, shared: &Shared, frame: &FrameId) -> Optio
         }
     }
     tokio::time::timeout(FRAME_ATTRIBUTION_TIMEOUT, async {
+        if let Some(owner) = attribute_worker(browser, shared, frame).await {
+            return Some(owner);
+        }
         for target in live {
             let Ok(page) = browser.get_page(target.clone()).await else {
                 continue;
@@ -4990,6 +5021,212 @@ mod tests {
             .expect("the subscriber must get the event within five seconds, with no target tracked")
             .expect("the subscription must stay open");
         assert_eq!(event.target_id.inner(), "LAST");
+    }
+
+    struct CensusBrowser {
+        browser: chromiumoxide::Browser,
+        handler: tokio::task::JoinHandle<()>,
+        server: tokio::task::JoinHandle<()>,
+        queries: Arc<AtomicUsize>,
+        closed: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl Drop for CensusBrowser {
+        fn drop(&mut self) {
+            self.handler.abort();
+            self.server.abort();
+        }
+    }
+
+    async fn serve_census(
+        mut socket: TestChildSocket,
+        info: super::TargetInfo,
+        before_reply: impl Fn() + Send + 'static,
+        query_count: Arc<AtomicUsize>,
+        closed_targets: Arc<Mutex<Vec<String>>>,
+    ) {
+        while let Some(Ok(async_tungstenite::tungstenite::Message::Text(text))) = socket.next().await {
+            let command: serde_json::Value = serde_json::from_str(text.as_ref()).expect("command JSON");
+            let result = match command["method"].as_str() {
+                Some("Target.getTargets") => {
+                    query_count.fetch_add(1, Ordering::SeqCst);
+                    before_reply();
+                    serde_json::json!({ "targetInfos": [info] })
+                }
+                Some("Target.closeTarget") => {
+                    lock(&closed_targets).push(command["params"]["targetId"].as_str().expect("target ID").into());
+                    serde_json::json!({ "success": true })
+                }
+                _ => serde_json::json!({}),
+            };
+            socket
+                .send(async_tungstenite::tungstenite::Message::Text(
+                    serde_json::json!({ "id": command["id"], "result": result })
+                        .to_string()
+                        .into(),
+                ))
+                .await
+                .expect("answer the driver");
+        }
+    }
+
+    async fn census_browser(info: super::TargetInfo, before_reply: impl Fn() + Send + 'static) -> CensusBrowser {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind the test browser socket");
+        let address = listener.local_addr().expect("test socket address");
+        let accepted = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept the driver");
+            async_tungstenite::tokio::accept_async(stream)
+                .await
+                .expect("accept WebSocket")
+        });
+        let (browser, handler) = chromiumoxide::Browser::connect(format!("ws://{address}"))
+            .await
+            .expect("connect the driver");
+        let handler = crate::browser_pool::spawn_handler(handler);
+        let socket: TestChildSocket = accepted.await.expect("WebSocket accept task");
+        let queries = Arc::new(AtomicUsize::new(0));
+        let closed = Arc::new(Mutex::new(Vec::new()));
+        let server = tokio::spawn(serve_census(
+            socket,
+            info,
+            before_reply,
+            Arc::clone(&queries),
+            Arc::clone(&closed),
+        ));
+        CensusBrowser {
+            browser,
+            handler,
+            server,
+            queries,
+            closed,
+        }
+    }
+
+    /// ~keep Fetch and target lifecycle events arrive on separate CDP connections. The census
+    /// can already identify a worker while its creation/attachment events are still queued.
+    #[tokio::test]
+    async fn a_worker_request_before_its_lifecycle_event_uses_authoritative_ownership() {
+        for kind in ["worker", "shared_worker", "service_worker"] {
+            let page = watched("ROOT");
+            let shared = shared_with(&page, "OTHER");
+            let context = register_owned_context(&shared, &page);
+            let worker = in_context(target_created("INNER", kind, Some("ROOT"), None, None), &context);
+            let fixture = census_browser(worker.target_info, || {}).await;
+            let census = fixture
+                .browser
+                .execute(super::GetTargetsParams::default())
+                .await
+                .expect("the authoritative census must be readable before lifecycle delivery");
+            assert_eq!(census.result.target_infos.len(), 1);
+            assert_eq!(census.result.target_infos[0].target_id.inner(), "INNER");
+            fixture.queries.store(0, Ordering::SeqCst);
+            assert!(lock(&shared.registry).owner_of_frame(&FrameId::new("INNER")).is_none());
+
+            let owner = super::attribute(&fixture.browser, &shared, &FrameId::new("INNER")).await;
+
+            assert!(
+                matches!(owner, Some(Owner::Watched(ref actual)) if Arc::ptr_eq(actual, &page)),
+                "the authoritative worker context must attribute its first request before lifecycle registration"
+            );
+            assert_eq!(fixture.queries.load(Ordering::SeqCst), 1);
+            assert!(lock(&fixture.closed).is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn worker_census_keeps_foreign_retired_conflicting_and_ending_targets_protected() {
+        for boundary in ["foreign", "retired", "conflicting", "ending"] {
+            let page = watched("ROOT");
+            let shared = shared_with(&page, "OTHER");
+            let context = register_owned_context(&shared, &page);
+            let mut worker = in_context(target_created("INNER", "worker", None, None, None), &context);
+            match boundary {
+                "foreign" => worker.target_info.browser_context_id = Some(BrowserContextId::new("FOREIGN")),
+                "retired" => {
+                    let mut registry = lock(&shared.registry);
+                    registry
+                        .contexts
+                        .get_mut(&context)
+                        .expect("registered context")
+                        .disposal_acknowledged = true;
+                    assert!(registry.retire_context(&context));
+                }
+                "conflicting" => {
+                    let other = watched("OTHER-ROOT");
+                    lock(&shared.registry).register_watched(other.root.clone(), other);
+                    worker.target_info.opener_id = Some(TargetId::new("OTHER-ROOT"));
+                }
+                "ending" => begin_ending(&page),
+                _ => unreachable!(),
+            }
+            let fixture = census_browser(worker.target_info, || {}).await;
+
+            let owner = super::attribute(&fixture.browser, &shared, &FrameId::new("INNER")).await;
+
+            assert_eq!(fixture.queries.load(Ordering::SeqCst), 1, "{boundary}");
+            if boundary == "foreign" {
+                assert!(matches!(owner, Some(Owner::Other)));
+                assert!(lock(&fixture.closed).is_empty());
+            } else {
+                assert!(owner.is_none(), "{boundary}");
+                assert_eq!(*lock(&fixture.closed), ["INNER"], "{boundary}");
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn worker_census_preserves_ownership_installed_while_its_reply_was_in_flight() {
+        for boundary in ["watched", "foreign", "quarantined", "pending", "pending-shared"] {
+            let old = watched("ROOT");
+            let shared = Arc::new(shared_with(&old, "OTHER"));
+            let context = register_owned_context(&shared, &old);
+            let worker = in_context(target_created("INNER", "worker", Some("ROOT"), None, None), &context);
+            let replacement = watched("NEW-ROOT");
+            let current = Arc::clone(&replacement);
+            let changing = Arc::clone(&shared);
+            let installed_generation = Arc::new(Mutex::new(None));
+            let generation = Arc::clone(&installed_generation);
+            let fixture = census_browser(worker.target_info, move || {
+                let mut registry = lock(&changing.registry);
+                match boundary {
+                    "watched" => registry.register_watched(TargetId::new("INNER"), Arc::clone(&current)),
+                    "foreign" => registry.register_other(TargetId::new("INNER")),
+                    "quarantined" => registry.register_quarantined(TargetId::new("INNER"), Some(context.clone())),
+                    "pending" => registry.register_pending(TargetId::new("INNER"), context.clone()),
+                    "pending-shared" => registry.register_pending_shared(TargetId::new("INNER")),
+                    _ => unreachable!(),
+                }
+                *lock(&generation) = registry.target_generations.get(&TargetId::new("INNER")).cloned();
+            })
+            .await;
+
+            let owner = super::attribute(&fixture.browser, &shared, &FrameId::new("INNER")).await;
+
+            assert_eq!(fixture.queries.load(Ordering::SeqCst), 1, "{boundary}");
+            assert!(lock(&fixture.closed).is_empty(), "{boundary}");
+            let registry = lock(&shared.registry);
+            assert!(
+                Arc::ptr_eq(
+                    registry
+                        .target_generations
+                        .get(&TargetId::new("INNER"))
+                        .expect("current generation"),
+                    lock(&installed_generation)
+                        .as_ref()
+                        .expect("generation installed during census"),
+                ),
+                "{boundary}"
+            );
+            match boundary {
+                "watched" => {
+                    assert!(matches!(owner, Some(Owner::Watched(actual)) if Arc::ptr_eq(&actual, &replacement)))
+                }
+                "foreign" => assert!(matches!(owner, Some(Owner::Other))),
+                _ => assert!(owner.is_none(), "{boundary}"),
+            }
+        }
     }
 
     async fn next_child_message(socket: &mut TestChildSocket) -> serde_json::Value {
