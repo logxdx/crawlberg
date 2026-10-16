@@ -123,7 +123,8 @@ jobs:
           persist-credentials: true
 
       - name: Retag for republish
-        if: ${{ inputs.republish == true || github.event.client_payload.republish == true }}
+        if: >-
+          ${{ (inputs.republish == true || github.event.client_payload.republish == true) && inputs.dry_run != true && inputs.dry_run != 'true' && github.event.client_payload.dry_run != true && github.event.client_payload.dry_run != 'true' }}
         uses: xberg-io/actions/retag-for-republish@v1
         with:
           tag: ${{ inputs.tag || github.event.client_payload.tag }}
@@ -135,13 +136,11 @@ jobs:
         id: meta
         uses: xberg-io/actions/prepare-release-metadata@v1
 
-      # ~keep Every publish job gates on `is_tag == 'true'`, so a run that resolves it false
-      # skips all of them and still reports success -- 68 skipped jobs and a green check.
-      # Run 35122273610 did exactly that: a `workflow_dispatch` carrying `ref: main` made
-      # prepare-release-metadata emit `refs/heads/main`, which is not a tag, and the Maven
-      # republish it was dispatched to perform silently never ran. `is_tag` is true in every
-      # legitimate mode, dry-run included (the synthesized `vX.Y.Z-dryrun-<sha>` tag still
-      # reads as a tag), so there is no case this refuses that should have published.
+      # ~keep Most build/publish jobs require is_tag. Reject explicit branches/commits,
+      # including dry runs, rather than report green after those jobs skip. Pre-tag rehearsals
+      # omit tag and ref inputs: metadata synthesizes a virtual tag and pins checkout_ref and
+      # target_sha to GITHUB_SHA. An explicit ref overrides that tag classification even when
+      # the synthesized dry-run version is present.
       - name: Assert the run can publish at all
         shell: bash
         env:
@@ -1605,7 +1604,7 @@ jobs:
     name: Push Go module subdir tag
     needs: [prepare, validate-versions, upload-go-release, publish-swift-checksums]
     if: >-
-      ${{ !inputs.plugins-only && (!cancelled() && needs.prepare.outputs.release_go == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && (needs.upload-go-release.result == 'success' || needs.upload-go-release.result == 'skipped') && (needs.publish-swift-checksums.result == 'success' || needs.publish-swift-checksums.result == 'skipped')) }}
+      ${{ !inputs.plugins-only && (!cancelled() && needs.prepare.outputs.release_go == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.dry_run != 'true' && needs.validate-versions.result == 'success' && (needs.upload-go-release.result == 'success' || needs.upload-go-release.result == 'skipped') && (needs.publish-swift-checksums.result == 'success' || needs.publish-swift-checksums.result == 'skipped')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v3

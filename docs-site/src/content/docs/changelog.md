@@ -8,6 +8,10 @@ All notable changes to crawlberg are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Release dry runs leave Go module tags and republish tags unchanged.
+
 ## [1.11.2] - 2026-10-16
 
 ### Fixed
