@@ -109,7 +109,9 @@ pub(crate) async fn sitemap_links_for_crawl(seed: &Url, config: &CrawlConfig) ->
     let context = SitemapWalkContext::new(&walk_config, &client, &filter);
     let mut urls = Vec::new();
     if walk_config.respect_robots_txt {
-        urls = sitemap_urls_from_robots(seed.as_str(), &walk_config, &client, &context).await;
+        urls = sitemap_urls_from_robots(seed, &walk_config, &client, &context)
+            .await
+            .unwrap_or_default();
     }
     if urls.is_empty() {
         urls = sitemap_urls_from_well_known(seed, &walk_config, &client, &context).await;
@@ -121,6 +123,7 @@ pub(crate) async fn sitemap_links_for_crawl(seed: &Url, config: &CrawlConfig) ->
             let resolved = Url::parse(&entry.url).ok()?;
             Some(crate::types::LinkInfo {
                 link_type: crate::html::classify_link(&entry.url, &resolved, seed),
+                original_url: entry.url.clone(),
                 url: entry.url,
                 text: String::new(),
                 rel: None,

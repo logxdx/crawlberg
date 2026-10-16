@@ -1,6 +1,6 @@
 {
   "name": "crawlberg-root",
-  "version": "1.11.2",
+  "version": "1.11.2+prowler.1",
   "private": true,
   "devDependencies": {
     "@napi-rs/cli": "^3.10.8",

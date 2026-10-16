@@ -7216,7 +7216,7 @@ pub extern "C" fn get_module() -> *mut ::ext_php_rs::zend::ModuleEntry {
     static __EXT_PHP_RS_MODULE_ENTRY: ::ext_php_rs::zend::StaticModuleEntry =
         ::ext_php_rs::zend::StaticModuleEntry::new();
     __EXT_PHP_RS_MODULE_ENTRY.get_or_init(|| {
-        let builder = ::ext_php_rs::builders::ModuleBuilder::new("crawlberg", "1.11.2")
+        let builder = ::ext_php_rs::builders::ModuleBuilder::new("crawlberg", "1.11.2+prowler.1")
             .startup_function(__ext_php_rs_module_startup);
         let builder = builder
             .class::<ActionResult>()
@@ -7279,7 +7279,7 @@ pub extern "C" fn get_module() -> *mut ::ext_php_rs::zend::ModuleEntry {
             }
             Err(error) => {
                 let _ = __EXT_PHP_RS_BUILD_ERROR.set(error.to_string());
-                let (entry, _, owned) = ::ext_php_rs::builders::ModuleBuilder::new("crawlberg", "1.11.2")
+                let (entry, _, owned) = ::ext_php_rs::builders::ModuleBuilder::new("crawlberg", "1.11.2+prowler.1")
                     .startup_function(__ext_php_rs_failed_startup)
                     .try_into()
                     .unwrap_or_else(|_| ::std::unreachable!("a module with literal name and version always builds"));

@@ -185,10 +185,10 @@ if ($preflightExit !== 0 || $preflightStdout === '') {
     exit(1);
 }
 $loadedVersion = $preflightStdout;
-if (version_compare($loadedVersion, '1.11.2', '<')) {
+if (version_compare($loadedVersion, '1.11.2+prowler.1', '<')) {
     fwrite(STDERR, "error: loaded crawlberg extension version mismatch.\n");
     fwrite(STDERR, "  extension at $extPath reports version: $loadedVersion\n");
-    fwrite(STDERR, "  expected version: >=1.11.2\n");
+    fwrite(STDERR, "  expected version: >=1.11.2+prowler.1\n");
     fwrite(STDERR, "Rebuild it with:\n");
     fwrite(STDERR, "  cargo build --release -p crawlberg-php\n");
     exit(1);
