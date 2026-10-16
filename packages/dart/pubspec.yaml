@@ -1,9 +1,9 @@
 name: crawlberg
 description: High-performance web crawling engine
-version: 1.10.3+prowler.1
+version: 1.11.2+prowler.1
 repository: https://github.com/xberg-io/crawlberg
 environment:
-  sdk: ">=3.11.0 <4.0.0"
+  sdk: ">=3.13.0 <4.0.0"
 executables:
   download_libs:
 dependencies:

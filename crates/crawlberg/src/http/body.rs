@@ -38,29 +38,6 @@ pub(crate) fn truncate_body_at_char_boundary(body: &mut String, max_size: usize)
     body.truncate(boundary);
 }
 
-/// Re-decode `body_bytes` using `charset` when it names a recognized non-UTF-8 encoding.
-///
-/// ~keep Shared by the scrape path (`scrape.rs`) and the crawl path
-/// (`engine/crawl_loop.rs`) so both apply the charset `detect_charset` reports instead
-/// of only reporting it. `resp.body`/`fetch.body` is always a `String::from_utf8_lossy`
-/// decode of the raw bytes (see `read_body_bounded` callers in this file and in
-/// `tower/service.rs`); for any non-UTF-8/us-ascii charset that lossy decode has
-/// already replaced every non-ASCII byte with U+FFFD, so callers must re-decode from
-/// `body_bytes` rather than post-process the lossy string.
-///
-/// Returns `None` — meaning "keep the caller's existing lossy-UTF-8 body" — when
-/// `charset` is `"utf-8"`/`"us-ascii"`, is not a label `encoding_rs` recognizes, or
-/// decoding hit unmappable sequences (an unreliable decode is worse than the lossy
-/// fallback, which at least round-trips the ASCII-safe portion of the page).
-pub(crate) fn redecode_with_charset(charset: &str, body_bytes: &[u8]) -> Option<String> {
-    if charset == "utf-8" || charset == "us-ascii" {
-        return None;
-    }
-    let encoding = encoding_rs::Encoding::for_label(charset.as_bytes())?;
-    let (decoded, _, had_errors) = encoding.decode(body_bytes);
-    if had_errors { None } else { Some(decoded.into_owned()) }
-}
-
 /// Safety ceiling on a response body when `max_body_size` is unset.
 ///
 /// ~keep reqwest is built with gzip and brotli, and `Response::chunk` yields
@@ -130,6 +107,62 @@ pub(crate) async fn read_body_bounded(
     _max_size: Option<usize>,
 ) -> Result<(Vec<u8>, bool), reqwest::Error> {
     Ok((resp.bytes().await?.to_vec(), false))
+}
+
+/// Compression codings recognized by validation. Native reqwest removes supported decoded
+/// encodings; Fetch retains them, so WASM separately accepts complete lists of supported codings.
+/// Other compression codings left on the response still name encoded bytes. ~keep
+const COMPRESSED_CODINGS: [&str; 9] = [
+    "gzip",
+    "x-gzip",
+    "deflate",
+    "br",
+    "zstd",
+    "compress",
+    "x-compress",
+    "dcb",
+    "dcz",
+];
+
+/// Refuse a response whose body is still compressed.
+///
+/// `identity`, an empty value and a label that is not a compression coding (a charset such as
+/// `UTF-8` that a server put in the wrong header) leave the body as the server sent it, so the
+/// page is returned.
+pub(crate) fn validate_content_encoding(headers: &reqwest::header::HeaderMap) -> Result<(), crate::error::CrawlError> {
+    validate_content_encoding_for_transport(headers, cfg!(target_arch = "wasm32"))
+}
+
+fn validate_content_encoding_for_transport(
+    headers: &reqwest::header::HeaderMap,
+    fetch_decodes: bool,
+) -> Result<(), crate::error::CrawlError> {
+    // ~keep Fetch decodes these codings but retains Content-Encoding. Every coding must be supported:
+    // mixed lists such as "gzip, identity" can remain compressed. zstd support varies by browser.
+    if fetch_decodes
+        && headers.get_all(reqwest::header::CONTENT_ENCODING).iter().all(|value| {
+            String::from_utf8_lossy(value.as_bytes()).split(',').all(|token| {
+                ["gzip", "x-gzip", "deflate", "br"]
+                    .iter()
+                    .any(|coding| token.trim().eq_ignore_ascii_case(coding))
+            })
+        })
+    {
+        return Ok(());
+    }
+    for encoding in headers.get_all(reqwest::header::CONTENT_ENCODING) {
+        let encoding = String::from_utf8_lossy(encoding.as_bytes());
+        if encoding.split(',').any(|token| {
+            COMPRESSED_CODINGS
+                .iter()
+                .any(|coding| token.trim().eq_ignore_ascii_case(coding))
+        }) {
+            return Err(crate::error::CrawlError::unsupported(format!(
+                "undecoded Content-Encoding: {encoding}"
+            )));
+        }
+    }
+    Ok(())
 }
 
 /// Read a response body via [`read_body_bounded`] and lossily decode it as UTF-8,
@@ -207,51 +240,6 @@ mod tests {
         let mut body = "abc".to_string();
         truncate_body_at_char_boundary(&mut body, 100);
         assert_eq!(body, "abc", "a body under the limit must not be modified");
-    }
-
-    #[test]
-    fn redecode_with_charset_decodes_windows_1252_bytes_exactly() {
-        // ~keep Real Windows-1252 bytes for "café €100" (verified via Python's `str.encode`).
-        // A UTF-8-lossy decode of these bytes would replace 0xE9 and 0x80 with U+FFFD.
-        let bytes: &[u8] = &[0x63, 0x61, 0x66, 0xE9, 0x20, 0x80, 0x31, 0x30, 0x30];
-        let decoded = redecode_with_charset("windows-1252", bytes);
-        assert_eq!(
-            decoded,
-            Some("café €100".to_owned()),
-            "windows-1252 bytes must decode to the exact original string, got {decoded:?}"
-        );
-    }
-
-    #[test]
-    fn redecode_with_charset_decodes_shift_jis_bytes_exactly() {
-        // ~keep Real Shift_JIS bytes for "日本語 テスト" (verified via Python's `str.encode`).
-        let bytes: &[u8] = &[
-            0x93, 0xFA, 0x96, 0x7B, 0x8C, 0xEA, 0x20, 0x83, 0x65, 0x83, 0x58, 0x83, 0x67,
-        ];
-        let decoded = redecode_with_charset("shift_jis", bytes);
-        assert_eq!(
-            decoded,
-            Some("日本語 テスト".to_owned()),
-            "shift_jis bytes must decode to the exact original string, got {decoded:?}"
-        );
-    }
-
-    #[test]
-    fn redecode_with_charset_is_a_noop_for_utf8() {
-        let decoded = redecode_with_charset("utf-8", "hello".as_bytes());
-        assert_eq!(
-            decoded, None,
-            "utf-8 must be a no-op (caller keeps its existing lossy body), got {decoded:?}"
-        );
-    }
-
-    #[test]
-    fn redecode_with_charset_returns_none_for_unrecognized_label() {
-        let decoded = redecode_with_charset("not-a-real-charset", b"hello");
-        assert_eq!(
-            decoded, None,
-            "an unrecognized charset label must not panic and must return None, got {decoded:?}"
-        );
     }
 
     #[tokio::test]
@@ -379,5 +367,77 @@ mod tests {
             Some(DEFAULT_MAX_BODY_SIZE * 4),
             "raising the cap above the ceiling is the documented opt-in for large bodies"
         );
+    }
+}
+
+#[cfg(test)]
+mod content_encoding_transport_tests {
+    use super::*;
+
+    fn validate(value: &str, fetch_decodes: bool) -> Result<(), crate::error::CrawlError> {
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert(
+            reqwest::header::CONTENT_ENCODING,
+            reqwest::header::HeaderValue::from_str(value).expect("valid test header"),
+        );
+        validate_content_encoding_for_transport(&headers, fetch_decodes)
+    }
+
+    #[test]
+    fn fetch_accepts_complete_lists_of_decoded_content_codings() {
+        for value in [
+            "gzip",
+            "GZIP",
+            "x-gzip",
+            "deflate",
+            "br",
+            "gzip, br",
+            " DEFLATE , X-Gzip ",
+        ] {
+            assert!(validate(value, true).is_ok(), "{value}");
+        }
+    }
+
+    #[test]
+    fn fetch_refuses_unsupported_or_partly_decoded_content_codings() {
+        for value in [
+            "compress",
+            "x-compress",
+            "dcb",
+            "dcz",
+            "zstd",
+            "gzip, identity",
+            "gzip, unknown",
+            "gzip,",
+            ",br",
+        ] {
+            let error = validate(value, true).expect_err(value);
+            assert!(
+                matches!(error, crate::error::CrawlError::Unsupported { .. }),
+                "{value}: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn fetch_checks_all_content_encoding_header_values_together() {
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.append(reqwest::header::CONTENT_ENCODING, "gzip".parse().expect("valid header"));
+        headers.append(
+            reqwest::header::CONTENT_ENCODING,
+            "identity".parse().expect("valid header"),
+        );
+        assert!(validate_content_encoding_for_transport(&headers, true).is_err());
+    }
+
+    #[test]
+    fn native_refuses_compression_codings_that_the_client_left_on_the_response() {
+        for value in ["gzip", "GZIP", "x-gzip", "deflate", "br", "gzip, br"] {
+            assert!(validate(value, false).is_err(), "{value}");
+        }
+        for value in ["", "identity", "UTF-8"] {
+            assert!(validate(value, false).is_ok(), "{value}");
+            assert!(validate(value, true).is_ok(), "{value}");
+        }
     }
 }

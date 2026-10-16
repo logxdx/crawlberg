@@ -1,4 +1,9 @@
 [package]
+include = [
+    "/Cargo.toml",
+    "/Cargo.lock",
+    "/src/**",
+]
 name = "crawlberg-bindings-common"
 version.workspace = true
 edition.workspace = true
@@ -14,7 +19,7 @@ keywords = ["crawl", "scrape", "bindings", "web", "ffi"]
 categories = ["api-bindings"]
 
 [dependencies]
-crawlberg = { path = "../crawlberg", version = "1.10.3+prowler.1", features = ["native-runtime"] }
+crawlberg = { path = "../crawlberg", version = "1.11.2+prowler.1", features = ["native-runtime"] }
 
 [lints]
 workspace = true

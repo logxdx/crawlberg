@@ -64,6 +64,24 @@ impl NativeRenderState {
         }
     }
 
+    /// Share a crawl's complete cookie jar while retaining this navigation's initiating site.
+    pub fn share_cookies_from(&mut self, other: &Self) {
+        self.cookie_jar = Arc::clone(&other.cookie_jar);
+    }
+
+    /// Store a response cookie in the shared jar using the native storage policy.
+    pub fn store_response_cookie(&self, cookie: &str, url: &url::Url) {
+        self.cookie_jar.set_cookie(cookie, url);
+    }
+
+    /// The cookies the shared jar sends to a top-level HTTP request for `url`.
+    pub fn request_cookie_header(&self, url: &url::Url) -> String {
+        self.cookie_jar.get_cookie_header_for_request(
+            url,
+            crate::net::cookies::CookieRequestContext::top_level(self.site_for_cookies.as_ref(), true),
+        )
+    }
+
     /// ~keep Record the document that initiates the next top-level navigation.
     pub fn set_site_for_cookies(&mut self, url: &str) {
         self.site_for_cookies = url::Url::parse(url).ok();
@@ -184,7 +202,14 @@ pub struct NativeBrowserConfig {
     /// the redirect response at the limit; a script navigation past it is not taken. `None`
     /// keeps the backend's own caps. Navigations an interact action starts are not counted.
     pub max_redirects: Option<usize>,
+    /// Turns the bytes of a document into its text. `None` reads every document as UTF-8, with
+    /// a replacement character for each sequence that is not UTF-8.
+    pub document_decoder: Option<DocumentDecoder>,
 }
+
+/// Decodes the bytes of a document. It gets the `Content-Type` header value, the URL and the
+/// bytes of the response, and returns the text and the character set it used, if it names one.
+pub type DocumentDecoder = fn(content_type: &str, url: &str, body: &[u8]) -> (String, Option<String>);
 
 #[allow(deprecated)]
 impl std::fmt::Debug for NativeBrowserConfig {
@@ -212,6 +237,7 @@ impl std::fmt::Debug for NativeBrowserConfig {
             allow_file_access,
             origin_headers,
             max_redirects,
+            document_decoder,
         } = self;
         f.debug_struct("NativeBrowserConfig")
             .field("user_agent", user_agent)
@@ -237,6 +263,7 @@ impl std::fmt::Debug for NativeBrowserConfig {
             .field("allow_file_access", allow_file_access)
             .field("origin_headers", origin_headers)
             .field("max_redirects", max_redirects)
+            .field("document_decoder", &document_decoder.is_some())
             .finish()
     }
 }
@@ -263,6 +290,7 @@ impl Default for NativeBrowserConfig {
             allow_file_access: false,
             origin_headers: None,
             max_redirects: None,
+            document_decoder: None,
         }
     }
 }
@@ -311,6 +339,8 @@ pub struct RenderedPage {
     /// Redirects the navigation followed when `max_redirects` was set: HTTP redirects, and the
     /// navigations the page's script started, one each. 0 when it was not set.
     pub redirects: usize,
+    /// The character set the document decoder reported for the document, if it reported one.
+    pub charset: Option<String>,
 }
 
 impl std::fmt::Debug for RenderedPage {
@@ -326,6 +356,7 @@ impl std::fmt::Debug for RenderedPage {
             network_events,
             cookies,
             redirects,
+            charset,
         } = self;
         f.debug_struct("RenderedPage")
             .field("final_url", final_url)
@@ -336,6 +367,7 @@ impl std::fmt::Debug for RenderedPage {
             .field("network_events", network_events)
             .field("cookies", cookies)
             .field("redirects", redirects)
+            .field("charset", charset)
             .finish()
     }
 }
@@ -479,8 +511,14 @@ async fn interact_url_local(
 ) -> Result<NativeInteractionResult, PageError> {
     let context = create_context(config).await?;
     let mut page = Page::new("page-1".to_string(), context);
+    page.document_decoder = config.document_decoder;
     configure_page_interception(&mut page, config);
     navigate_configured(&mut page, url, config).await?;
+    // ~keep Rendering returns an unfinished redirect for the crawl's hop policy to reject;
+    // interaction has no later hop policy and must reject it before running page actions.
+    if let Some(error) = page.unfollowed_redirect.take() {
+        return Err(error);
+    }
 
     if let Some(wait) = post_navigation_wait {
         tokio::time::sleep(wait).await;
@@ -593,6 +631,7 @@ async fn render_with_context(
 ) -> Result<RenderedPage, PageError> {
     let mut page = Page::new("page-1".to_string(), context.clone());
     page.url = site_for_cookies;
+    page.document_decoder = config.document_decoder;
     configure_page_interception(&mut page, config);
     let redirects = navigate_configured(&mut page, url, config).await?;
 
@@ -643,6 +682,7 @@ async fn render_with_context(
         network_events,
         cookies,
         redirects,
+        charset: page.document_charset.clone(),
     })
 }
 

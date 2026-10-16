@@ -630,8 +630,7 @@ mod tests {
     fn extract_links_through_the_pipeline(html: &str) -> Vec<String> {
         let masked = mask_raw_text_markup(html);
         let document_url = url::Url::parse("https://example.com/page").expect("valid document URL");
-        let base_url = crate::html::effective_base_url(masked.base_href.as_deref(), &document_url);
-        crate::html::extract_links(&masked, &base_url)
+        crate::html::extract_links(&masked, &document_url)
             .into_iter()
             .map(|link| link.url)
             .collect()
@@ -774,7 +773,7 @@ mod tests {
         /// second defect above from also firing.
         #[test]
         fn comment_close_matches_html5ever_on_short_alphabets() {
-            let alphabet = [b'-', b'!', b'>', b'a', b' ', b'<'];
+            let alphabet = *b"-!>a <";
             let mut total = 0usize;
             let mut mismatches: Vec<(String, bool, bool)> = Vec::new();
             let mut length_breaks: Vec<String> = Vec::new();
@@ -833,7 +832,7 @@ mod tests {
         /// be found, whatever bytes are inside the script.
         #[test]
         fn comment_bytes_inside_script_never_trigger_comment_edit() {
-            let alphabet = [b'-', b'!', b'>', b'a', b' ', b'<'];
+            let alphabet = *b"-!>a <";
             let mut total = 0usize;
             let mut false_positives: Vec<String> = Vec::new();
             let mut hidden_anchor: Vec<String> = Vec::new();

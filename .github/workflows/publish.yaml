@@ -3,6 +3,10 @@ name: Publish Release
 on:
   workflow_dispatch:
     inputs:
+      plugins-only:
+        description: "Publish only missing plugin registry versions from main"
+        type: boolean
+        default: false
       tag:
         description: "Release tag to build (e.g., v0.3.0-rc.20)"
         required: false
@@ -63,8 +67,7 @@ jobs:
     # re-run, so it would ADMIT a duplicate when someone re-runs the bot's own recursive run.
     # `actor` is pinned to whoever initiated the original run and survives re-runs. ~keep
     if: >-
-      github.event_name != 'release' ||
-      github.actor != 'xberg-dev-publisher[bot]'
+      ${{ !inputs.plugins-only && (github.event_name != 'release' || github.actor != 'xberg-dev-publisher[bot]') }}
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
@@ -120,7 +123,8 @@ jobs:
           persist-credentials: true
 
       - name: Retag for republish
-        if: ${{ inputs.republish == true || github.event.client_payload.republish == true }}
+        if: >-
+          ${{ (inputs.republish == true || github.event.client_payload.republish == true) && inputs.dry_run != true && inputs.dry_run != 'true' && github.event.client_payload.dry_run != true && github.event.client_payload.dry_run != 'true' }}
         uses: xberg-io/actions/retag-for-republish@v1
         with:
           tag: ${{ inputs.tag || github.event.client_payload.tag }}
@@ -132,13 +136,11 @@ jobs:
         id: meta
         uses: xberg-io/actions/prepare-release-metadata@v1
 
-      # ~keep Every publish job gates on `is_tag == 'true'`, so a run that resolves it false
-      # skips all of them and still reports success -- 68 skipped jobs and a green check.
-      # Run 35122273610 did exactly that: a `workflow_dispatch` carrying `ref: main` made
-      # prepare-release-metadata emit `refs/heads/main`, which is not a tag, and the Maven
-      # republish it was dispatched to perform silently never ran. `is_tag` is true in every
-      # legitimate mode, dry-run included (the synthesized `vX.Y.Z-dryrun-<sha>` tag still
-      # reads as a tag), so there is no case this refuses that should have published.
+      # ~keep Most build/publish jobs require is_tag. Reject explicit branches/commits,
+      # including dry runs, rather than report green after those jobs skip. Pre-tag rehearsals
+      # omit tag and ref inputs: metadata synthesizes a virtual tag and pins checkout_ref and
+      # target_sha to GITHUB_SHA. An explicit ref overrides that tag classification even when
+      # the synthesized dry-run version is present.
       - name: Assert the run can publish at all
         shell: bash
         env:
@@ -193,7 +195,8 @@ jobs:
   validate-versions:
     name: Validate language manifest versions
     needs: prepare
-    if: ${{ needs.prepare.outputs.is_tag == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.is_tag == 'true') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -227,7 +230,8 @@ jobs:
   check-pypi:
     name: Check PyPI for existing version
     needs: prepare
-    if: ${{ needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_python == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_python == 'true') }}
     runs-on: ubuntu-latest
     outputs:
       exists: ${{ steps.check.outputs.exists }}
@@ -242,7 +246,8 @@ jobs:
   check-npm:
     name: Check npm for existing version
     needs: prepare
-    if: ${{ needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_node == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_node == 'true') }}
     runs-on: ubuntu-latest
     outputs:
       exists: ${{ steps.check.outputs.exists }}
@@ -257,7 +262,8 @@ jobs:
   check-wasm:
     name: Check npm for existing WASM package
     needs: prepare
-    if: ${{ needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_wasm == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_wasm == 'true') }}
     runs-on: ubuntu-latest
     outputs:
       exists: ${{ steps.check.outputs.exists }}
@@ -272,7 +278,8 @@ jobs:
   check-rubygems:
     name: Check RubyGems for existing version
     needs: prepare
-    if: ${{ needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_ruby == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_ruby == 'true') }}
     runs-on: ubuntu-latest
     outputs:
       exists: ${{ steps.check.outputs.exists }}
@@ -287,7 +294,8 @@ jobs:
   check-maven:
     name: Check Maven Central for existing version
     needs: prepare
-    if: ${{ needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_java == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_java == 'true') }}
     runs-on: ubuntu-latest
     outputs:
       exists: ${{ steps.check.outputs.exists }}
@@ -302,7 +310,8 @@ jobs:
   check-nuget:
     name: Check NuGet for existing version
     needs: prepare
-    if: ${{ needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_csharp == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_csharp == 'true') }}
     runs-on: ubuntu-latest
     outputs:
       exists: ${{ steps.check.outputs.exists }}
@@ -317,7 +326,8 @@ jobs:
   check-packagist:
     name: Check Packagist for existing version
     needs: prepare
-    if: ${{ needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_php == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_php == 'true') }}
     runs-on: ubuntu-latest
     outputs:
       exists: ${{ steps.check.outputs.exists }}
@@ -332,7 +342,8 @@ jobs:
   check-cratesio:
     name: Check crates.io for existing versions
     needs: prepare
-    if: ${{ needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_crates == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_crates == 'true') }}
     runs-on: ubuntu-latest
     outputs:
       all_exist: ${{ steps.check.outputs.all_exist }}
@@ -383,7 +394,8 @@ jobs:
   check-hex:
     name: Check Hex.pm for existing version
     needs: prepare
-    if: ${{ needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_elixir == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_elixir == 'true') }}
     runs-on: ubuntu-latest
     outputs:
       exists: ${{ steps.check.outputs.exists }}
@@ -398,7 +410,8 @@ jobs:
   check-zig:
     name: Check Zig package presence
     needs: prepare
-    if: ${{ (needs.prepare.outputs.is_tag == 'true' || needs.prepare.outputs.dry_run == 'true') && needs.prepare.outputs.release_zig == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && ((needs.prepare.outputs.is_tag == 'true' || needs.prepare.outputs.dry_run == 'true') && needs.prepare.outputs.release_zig == 'true') }}
     runs-on: ubuntu-latest
     outputs:
       exists: ${{ steps.check.outputs.exists }}
@@ -415,7 +428,8 @@ jobs:
   check-maven-kotlin-android:
     name: Check Maven Central for kotlin-android package
     needs: prepare
-    if: ${{ needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_kotlin_android == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_kotlin_android == 'true') }}
     runs-on: ubuntu-latest
     outputs:
       # ~keep check-registry is a composite action and only declares `exists`, so
@@ -462,7 +476,8 @@ jobs:
   check-homebrew:
     name: Check Homebrew tap for formula
     needs: prepare
-    if: ${{ needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_homebrew == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_homebrew == 'true') }}
     runs-on: ubuntu-latest
     outputs:
       exists: ${{ steps.check.outputs.exists }}
@@ -478,7 +493,8 @@ jobs:
   check-cli:
     name: Check GitHub Release for CLI assets
     needs: prepare
-    if: ${{ needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_cli == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_cli == 'true') }}
     runs-on: ubuntu-latest
     outputs:
       exists: ${{ steps.check.outputs.exists }}
@@ -498,7 +514,8 @@ jobs:
   check-go:
     name: Check GitHub Release for Go FFI assets
     needs: prepare
-    if: ${{ needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_go == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_go == 'true') }}
     runs-on: ubuntu-latest
     outputs:
       exists: ${{ steps.check.outputs.exists }}
@@ -516,7 +533,8 @@ jobs:
   check-c-ffi:
     name: Check GitHub Release for C FFI assets
     needs: prepare
-    if: ${{ needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_c_ffi == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_c_ffi == 'true') }}
     runs-on: ubuntu-latest
     outputs:
       exists: ${{ steps.check.outputs.exists }}
@@ -534,7 +552,8 @@ jobs:
   check-elixir-release:
     name: Check GitHub Release for Elixir NIF assets
     needs: prepare
-    if: ${{ needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_elixir == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.release_elixir == 'true') }}
     runs-on: ubuntu-latest
     outputs:
       exists: ${{ steps.check.outputs.exists }}
@@ -552,7 +571,8 @@ jobs:
   python-wheels:
     name: Build Python wheels (${{ matrix.os }})
     needs: [prepare, check-pypi]
-    if: ${{ needs.prepare.outputs.release_python == 'true' && (needs.check-pypi.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_python == 'true' && (needs.check-pypi.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 180
     strategy:
@@ -593,7 +613,8 @@ jobs:
   python-sdist:
     name: Build Python sdist
     needs: [prepare, check-pypi, crates-gate]
-    if: ${{ !cancelled() && needs.crates-gate.outputs.ok == 'true' && needs.prepare.outputs.release_python == 'true' && (needs.check-pypi.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (!cancelled() && needs.crates-gate.outputs.ok == 'true' && needs.prepare.outputs.release_python == 'true' && (needs.check-pypi.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -622,7 +643,8 @@ jobs:
   node-bindings:
     name: Build Node bindings (${{ matrix.target }})
     needs: [prepare, check-npm]
-    if: ${{ needs.prepare.outputs.release_node == 'true' && (needs.check-npm.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_node == 'true' && (needs.check-npm.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 180
     strategy:
@@ -691,6 +713,7 @@ jobs:
           crate-dir: crates/crawlberg-node
           target: ${{ matrix.target }}
           use-napi-cross: ${{ matrix.use_napi_cross }}
+          dts-name: index.native.d.ts # ~keep NAPI must preserve Alef's public index.d.ts.
           pack-target-tarball: node-bindings-${{ matrix.target }}.tar.gz
 
       - uses: actions/upload-artifact@v7
@@ -702,7 +725,8 @@ jobs:
   wasm-bindings:
     name: Build WASM package
     needs: [prepare, check-wasm]
-    if: ${{ needs.prepare.outputs.release_wasm == 'true' && (needs.check-wasm.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_wasm == 'true' && (needs.check-wasm.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -748,7 +772,8 @@ jobs:
   ruby-gem:
     name: Build Ruby gem (${{ matrix.label }})
     needs: [prepare, check-rubygems, crates-gate]
-    if: ${{ !cancelled() && needs.crates-gate.outputs.ok == 'true' && needs.prepare.outputs.release_ruby == 'true' && (needs.check-rubygems.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (!cancelled() && needs.crates-gate.outputs.ok == 'true' && needs.prepare.outputs.release_ruby == 'true' && (needs.check-rubygems.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 180
     env:
@@ -757,10 +782,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, label: linux }
-          - { os: ubuntu-24.04-arm, label: linux-aarch64 }
-          - { os: macos-latest, label: macos-arm64 }
-          - { os: macos-15-intel, label: macos-x86_64 }
+          - { os: ubuntu-latest, label: linux, platform: x86_64-linux }
+          - { os: ubuntu-24.04-arm, label: linux-aarch64, platform: aarch64-linux }
+          - { os: macos-latest, label: macos-arm64, platform: arm64-darwin }
+          - { os: macos-15-intel, label: macos-x86_64, platform: x86_64-darwin }
           # ~keep windows-x64 was dropped when rb-sys 0.9.127 could not resolve Ruby's
           # mingw headers (`ruby/defines.h:63:11: fatal error: 'sys/select.h' file not
           # found`) and the tracking issue oxidize-rb/rb-sys#268 sat open with no fix
@@ -770,13 +795,22 @@ jobs:
           # rather than cross-compiling from rb-sys-dock, so the header search path the
           # old failure turned on is the toolchain's own. `fail-fast: false` keeps a
           # regression here from taking the other four platform gems down with it.
-          - { os: windows-latest, label: windows-x64 }
+          - { os: windows-latest, label: windows-x64, platform: x64-mingw-ucrt }
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
           fetch-depth: 0
           submodules: recursive
+
+      - name: Checkout pinned Ruby release packaging tooling
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .release-tools
+          sparse-checkout: scripts/publish/package-ruby-native.rb
+          sparse-checkout-cone-mode: "false"
+          persist-credentials: "false"
 
       - name: Free disk space
         if: runner.os == 'Linux'
@@ -808,34 +842,12 @@ jobs:
         with:
           package-dir: packages/ruby
 
-      - name: Build platform gem
-        if: runner.os != 'Windows'
+      - name: Package and verify native platform gem
         shell: bash
-        run: |
-          cd packages/ruby
-          bundle exec rake compile
-          bundle exec rake build
-
-      # ~keep Windows needs the mingw environment that `build-ruby-gem@v1` already uses for the
-      # same compile, and this step previously ran in a plain bash shell without it. Cargo then
-      # fell back to the msvc host target while RubyInstaller's Ruby is mingw32, and rb-sys
-      # refused: `Ruby was built for target_os="mingw32", but Cargo is compiling for
-      # "x86_64-pc-windows-msvc"`. That failure took the WHOLE RubyGems target down in v1.6.1 --
-      # `publish-rubygems` needs the entire matrix green, so four already-built platform gems
-      # were discarded with it. Keep this invocation identical to the action's.
-      - name: Build platform gem (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          # ~keep The gnu TARGET must be added to the toolchain that is actually active here.
-          # ~keep `build-ruby-gem` installs a gnu-host toolchain and renames rust-toolchain.toml
-          # ~keep to .disabled for its own compile, then RESTORES it -- so by this step the
-          # ~keep active toolchain is the pinned 1.95 whose only extra target is
-          # ~keep wasm32-unknown-unknown, and cargo fails with `can't find crate for core`.
-          # ~keep Installing a gnu toolchain is not the same as adding the gnu target.
-          rustup target add x86_64-pc-windows-gnu
-          $unixPath = ridk exec bash -lc "cygpath -au '$env:GITHUB_WORKSPACE/packages/ruby'"
-          ridk exec bash -lc "cd '$unixPath' && export CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ CARGO_BUILD_TARGET=x86_64-pc-windows-gnu && bundle exec rake compile && bundle exec rake build"
+        env:
+          EXPECTED_PLATFORM: ${{ matrix.platform }}
+          VERSION: ${{ needs.prepare.outputs.gem_version }}
+        run: ruby .release-tools/scripts/publish/package-ruby-native.rb packages/ruby "$EXPECTED_PLATFORM" "$VERSION"
 
       - name: Drop source gem on non-canonical builders
         if: ${{ matrix.label != 'linux' }}
@@ -854,12 +866,14 @@ jobs:
         with:
           name: rubygems-${{ matrix.label }}
           path: packages/ruby/pkg/*.gem
+          if-no-files-found: error
           retention-days: 14
 
   php-extension:
     name: Build PHP extension (php${{ matrix.php }} ${{ matrix.platform.label }})
     needs: [prepare, check-packagist, crates-gate]
-    if: ${{ !cancelled() && needs.crates-gate.outputs.ok == 'true' && needs.prepare.outputs.release_php == 'true' && (needs.check-packagist.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (!cancelled() && needs.crates-gate.outputs.ok == 'true' && needs.prepare.outputs.release_php == 'true' && (needs.check-packagist.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ${{ matrix.platform.os }}
     timeout-minutes: 60
     strategy:
@@ -937,7 +951,8 @@ jobs:
   cli-release:
     name: Build & release CLI binaries
     needs: [prepare, validate-versions, check-cli, cli-musl-binaries]
-    if: ${{ needs.prepare.outputs.release_cli == 'true' && (needs.validate-versions.result == 'success' || needs.validate-versions.result == 'skipped') && (needs.check-cli.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_cli == 'true' && (needs.validate-versions.result == 'success' || needs.validate-versions.result == 'skipped') && (needs.check-cli.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     permissions:
       contents: write
     uses: xberg-io/actions/.github/workflows/reusable-cli-release.yml@v1
@@ -961,7 +976,8 @@ jobs:
   verify-binstall:
     name: Verify cargo-binstall install
     needs: [prepare, cli-release, promote-release]
-    if: ${{ !cancelled() && needs.prepare.outputs.release_cli == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.dry_run != 'true' && needs.cli-release.result == 'success' && needs.promote-release.outputs.promoted == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (!cancelled() && needs.prepare.outputs.release_cli == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.dry_run != 'true' && needs.cli-release.result == 'success' && needs.promote-release.outputs.promoted == 'true') }}
     uses: xberg-io/actions/.github/workflows/reusable-binstall-verify.yml@v1
     with:
       package-name: crawlberg-cli
@@ -974,7 +990,8 @@ jobs:
   cli-musl-binaries:
     name: Build CLI musl binary (${{ matrix.arch }})
     needs: [prepare, check-cli]
-    if: ${{ needs.prepare.outputs.release_cli == 'true' && (needs.check-cli.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_cli == 'true' && (needs.check-cli.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
     strategy:
@@ -1020,7 +1037,8 @@ jobs:
   go-ffi-libraries:
     name: Build Go FFI library (${{ matrix.platform }})
     needs: [prepare, check-go]
-    if: ${{ needs.prepare.outputs.release_go == 'true' && (needs.check-go.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_go == 'true' && (needs.check-go.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 180
     strategy:
@@ -1049,6 +1067,8 @@ jobs:
           cache-key-prefix: publish-go-${{ matrix.platform }}
 
       - uses: xberg-io/actions/build-go-ffi@v1
+        env:
+          CARGO_TERM_COLOR: never
         with:
           target: ${{ matrix.target }}
           crate-name: crawlberg-ffi
@@ -1080,7 +1100,8 @@ jobs:
   c-ffi-libraries:
     name: Build C FFI distribution (${{ matrix.platform }})
     needs: [prepare, check-c-ffi]
-    if: ${{ needs.prepare.outputs.release_c_ffi == 'true' && (needs.check-c-ffi.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_c_ffi == 'true' && (needs.check-c-ffi.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 180
     strategy:
@@ -1109,9 +1130,12 @@ jobs:
           cache-key-prefix: publish-c-ffi-${{ matrix.platform }}
 
       - uses: xberg-io/actions/build-rust-ffi@v1
+        env:
+          CARGO_TERM_COLOR: never
         with:
           crate-name: crawlberg-ffi
           target: ${{ matrix.target }}
+          require-static: "true"
 
       - name: Stage C FFI distribution
         # Inline: bundle library + header + LICENSE into a single tarball
@@ -1128,7 +1152,9 @@ jobs:
           STAGE="crawlberg-ffi-v${VERSION}-${TARGET}"
           mkdir -p "$STAGE/lib" "$STAGE/include"
           find "target/${TARGET}/release" -maxdepth 1 -type f \
-            \( -name 'libcrawlberg_ffi.*' -o -name 'crawlberg_ffi.dll' \) \
+            \( -name 'libcrawlberg_ffi.so' -o -name 'libcrawlberg_ffi.dylib' \
+            -o -name 'libcrawlberg_ffi.a' -o -name 'crawlberg_ffi.dll' \
+            -o -name 'crawlberg_ffi.lib' -o -name 'native-static-libs.txt' \) \
             -exec cp {} "$STAGE/lib/" \;
           cp crates/crawlberg-ffi/include/crawlberg.h "$STAGE/include/"
           cp LICENSE "$STAGE/" 2>/dev/null || true
@@ -1145,7 +1171,8 @@ jobs:
   java-natives:
     name: Build Java natives (${{ matrix.classifier }})
     needs: [prepare, check-maven]
-    if: ${{ needs.prepare.outputs.release_java == 'true' && (needs.check-maven.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_java == 'true' && (needs.check-maven.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 180
     strategy:
@@ -1190,7 +1217,8 @@ jobs:
   java-natives-musl:
     name: Build Java natives (linux-musl-${{ matrix.arch }})
     needs: [prepare, check-maven]
-    if: ${{ needs.prepare.outputs.release_java == 'true' && (needs.check-maven.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_java == 'true' && (needs.check-maven.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 180
     strategy:
@@ -1244,7 +1272,8 @@ jobs:
   csharp-natives:
     name: Build C# natives (${{ matrix.rid }})
     needs: [prepare, check-nuget]
-    if: ${{ needs.prepare.outputs.release_csharp == 'true' && (needs.check-nuget.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_csharp == 'true' && (needs.check-nuget.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 180
     strategy:
@@ -1289,7 +1318,8 @@ jobs:
   csharp-natives-musl:
     name: Build C# natives (linux-musl-${{ matrix.arch }})
     needs: [prepare, check-nuget]
-    if: ${{ needs.prepare.outputs.release_csharp == 'true' && (needs.check-nuget.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_csharp == 'true' && (needs.check-nuget.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 180
     strategy:
@@ -1329,7 +1359,8 @@ jobs:
   elixir-natives:
     name: Build Elixir NIF (${{ matrix.label }} nif-${{ matrix.nif }})
     needs: [prepare, check-elixir-release, crates-gate]
-    if: ${{ !cancelled() && needs.crates-gate.outputs.ok == 'true' && needs.prepare.outputs.release_elixir == 'true' && (needs.check-elixir-release.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (!cancelled() && needs.crates-gate.outputs.ok == 'true' && needs.prepare.outputs.release_elixir == 'true' && (needs.check-elixir-release.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 180
     strategy:
@@ -1396,7 +1427,8 @@ jobs:
   elixir-natives-musl:
     name: Build Elixir NIF (linux-musl-${{ matrix.arch }} nif-${{ matrix.nif }})
     needs: [prepare, check-elixir-release, crates-gate]
-    if: ${{ !cancelled() && needs.crates-gate.outputs.ok == 'true' && needs.prepare.outputs.release_elixir == 'true' && (needs.check-elixir-release.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (!cancelled() && needs.crates-gate.outputs.ok == 'true' && needs.prepare.outputs.release_elixir == 'true' && (needs.check-elixir-release.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 180
     strategy:
@@ -1450,7 +1482,8 @@ jobs:
   swift-artifactbundle:
     name: Build Swift artifact bundle
     needs: prepare
-    if: ${{ needs.prepare.outputs.release_swift == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_swift == 'true') }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
@@ -1458,6 +1491,14 @@ jobs:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
           fetch-depth: 0
       - uses: xberg-io/actions/setup-rust@v1
+        with:
+          macos-dynamic-lookup: "false"
+      # ~keep cargo-zigbuild's unreleased fix drops rustc's ignored -Wl,-O1 flag for Zig 0.17.
+      - name: Install compatible Swift cross-linker
+        run: >-
+          cargo install --locked --force
+          --git https://github.com/rust-cross/cargo-zigbuild
+          --rev 371bac84444fe6f998955889f2106802b817094b cargo-zigbuild
       - uses: xberg-io/actions/build-swift-artifactbundle@v1
         id: bundle
         # ~keep Rust otherwise links the iOS archive for 10.0 while current aws-lc objects use
@@ -1479,7 +1520,8 @@ jobs:
   swift-package:
     name: Build Swift package
     needs: prepare
-    if: ${{ needs.prepare.outputs.release_swift == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_swift == 'true') }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
@@ -1503,7 +1545,8 @@ jobs:
   zig-package:
     name: Build Zig package (smoke check)
     needs: prepare
-    if: ${{ needs.prepare.outputs.release_zig == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_zig == 'true') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -1521,7 +1564,8 @@ jobs:
   upload-go-release:
     name: Upload Go FFI archives to GitHub Release
     needs: [prepare, validate-versions, go-ffi-libraries]
-    if: ${{ needs.prepare.outputs.release_go == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && needs.go-ffi-libraries.result == 'success' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_go == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && needs.go-ffi-libraries.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v3
@@ -1559,7 +1603,8 @@ jobs:
   push-go-subdir-tag:
     name: Push Go module subdir tag
     needs: [prepare, validate-versions, upload-go-release, publish-swift-checksums]
-    if: ${{ !cancelled() && needs.prepare.outputs.release_go == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && (needs.upload-go-release.result == 'success' || needs.upload-go-release.result == 'skipped') && (needs.publish-swift-checksums.result == 'success' || needs.publish-swift-checksums.result == 'skipped') }}
+    if: >-
+      ${{ !inputs.plugins-only && (!cancelled() && needs.prepare.outputs.release_go == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.dry_run != 'true' && needs.validate-versions.result == 'success' && (needs.upload-go-release.result == 'success' || needs.upload-go-release.result == 'skipped') && (needs.publish-swift-checksums.result == 'success' || needs.publish-swift-checksums.result == 'skipped')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v3
@@ -1612,7 +1657,8 @@ jobs:
   upload-c-ffi-release:
     name: Upload C FFI archives to GitHub Release
     needs: [prepare, validate-versions, c-ffi-libraries]
-    if: ${{ needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && needs.c-ffi-libraries.result == 'success' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && needs.c-ffi-libraries.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v3
@@ -1639,7 +1685,8 @@ jobs:
   upload-swift-release:
     name: Upload Swift artifact bundle to GitHub Release
     needs: [prepare, validate-versions, swift-artifactbundle]
-    if: ${{ needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && needs.swift-artifactbundle.result == 'success' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && needs.swift-artifactbundle.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v3
@@ -1665,7 +1712,8 @@ jobs:
   publish-swift-checksums:
     name: Inject Swift artifactbundle checksum into the release tag
     needs: [prepare, validate-versions, upload-swift-release]
-    if: ${{ !cancelled() && needs.upload-swift-release.result == 'success' && needs.validate-versions.result == 'success' && needs.prepare.outputs.release_swift == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.dry_run != 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (!cancelled() && needs.upload-swift-release.result == 'success' && needs.validate-versions.result == 'success' && needs.prepare.outputs.release_swift == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.dry_run != 'true') }}
     runs-on: macos-latest
     steps:
       - uses: actions/create-github-app-token@v3
@@ -1772,7 +1820,8 @@ jobs:
     # html-to-markdown runs 33491693123/33494806766/33495781759 and fixed there in 98d4537c41.
     # Opting out of propagation also disables the implicit needs gate, so every need that must
     # have succeeded is named explicitly below.
-    if: ${{ !cancelled() && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && (needs.elixir-natives.result == 'success' || needs.elixir-natives-musl.result == 'success') }}
+    if: >-
+      ${{ !inputs.plugins-only && (!cancelled() && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && (needs.elixir-natives.result == 'success' || needs.elixir-natives-musl.result == 'success')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v3
@@ -1806,7 +1855,8 @@ jobs:
     # html-to-markdown runs 33491693123/33494806766/33495781759 and fixed there in 98d4537c41.
     # Opting out of propagation also disables the implicit needs gate, so every need that must
     # have succeeded is named explicitly below.
-    if: ${{ !cancelled() && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && needs.php-extension.result == 'success' }}
+    if: >-
+      ${{ !inputs.plugins-only && (!cancelled() && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && needs.php-extension.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v3
@@ -1843,7 +1893,8 @@ jobs:
       - upload-c-ffi-release
       - upload-elixir-release
       - upload-php-pie-release
-    if: ${{ always() && needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.dry_run != 'true' && !contains(needs.*.result, 'failure') }}
+    if: >-
+      ${{ !inputs.plugins-only && (always() && needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.dry_run != 'true' && !contains(needs.*.result, 'failure')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -1872,7 +1923,8 @@ jobs:
   publish-crates:
     name: Publish crates.io packages
     needs: [prepare, validate-versions, check-cratesio]
-    if: ${{ needs.prepare.outputs.release_crates == 'true' && needs.prepare.outputs.is_tag == 'true' && (needs.check-cratesio.outputs.all_exist != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_crates == 'true' && needs.prepare.outputs.is_tag == 'true' && (needs.check-cratesio.outputs.all_exist != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1905,6 +1957,34 @@ jobs:
           fi
           echo "Publishing ${COUNT} crate(s): ${RESOLVED_CRATES}"
 
+      # ~keep The excluded browser fork has its own version and must reach the index before core packaging.
+      - name: Read the browser fork version
+        id: fork_metadata
+        shell: bash
+        run: |
+          python3 - <<'PYTHON'
+          import os
+          import tomllib
+          from pathlib import Path
+
+          package = tomllib.loads(Path('vendor/crawlberg-chromiumoxide/Cargo.toml').read_text()).get('package', {})
+          version = package.get('version')
+          if package.get('name') != 'crawlberg-chromiumoxide' or not isinstance(version, str) or not version.strip():
+              raise SystemExit('Missing or unexpected browser fork package identity or version')
+          if any(character.isspace() for character in version):
+              raise SystemExit('Browser fork version must not contain whitespace')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'version={version}\n')
+          PYTHON
+
+      - name: Publish the browser fork before core crates
+        uses: xberg-io/actions/publish-crates@v1
+        with:
+          crates: crawlberg-chromiumoxide
+          manifest-path: vendor/crawlberg-chromiumoxide/Cargo.toml
+          version: ${{ steps.fork_metadata.outputs.version }}
+          dry-run: ${{ needs.prepare.outputs.dry_run }}
+
       - uses: xberg-io/actions/publish-crates@v1
         with:
           crates: ${{ env.CRATES_TO_PUBLISH }}
@@ -1922,7 +2002,8 @@ jobs:
   crates-gate:
     name: Crates.io publish gate
     needs: [prepare, check-cratesio, publish-crates]
-    if: always()
+    if: >-
+      ${{ !inputs.plugins-only && (always()) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -1979,7 +2060,8 @@ jobs:
     # html-to-markdown runs 33491693123/33494806766/33495781759 and fixed there in 98d4537c41.
     # Opting out of propagation also disables the implicit needs gate, so every need that must
     # have succeeded is named explicitly below.
-    if: ${{ !cancelled() && needs.prepare.outputs.release_python == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && needs.python-wheels.result == 'success' && needs.python-sdist.result == 'success' && (needs.check-pypi.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (!cancelled() && needs.prepare.outputs.release_python == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && needs.python-wheels.result == 'success' && needs.python-sdist.result == 'success' && (needs.check-pypi.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -2012,7 +2094,8 @@ jobs:
     # html-to-markdown runs 33491693123/33494806766/33495781759 and fixed there in 98d4537c41.
     # Opting out of propagation also disables the implicit needs gate, so every need that must
     # have succeeded is named explicitly below.
-    if: ${{ !cancelled() && needs.prepare.outputs.release_ruby == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && needs.ruby-gem.result == 'success' && (needs.check-rubygems.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (!cancelled() && needs.prepare.outputs.release_ruby == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && needs.ruby-gem.result == 'success' && (needs.check-rubygems.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -2040,7 +2123,8 @@ jobs:
   publish-node:
     name: Publish Node packages
     needs: [prepare, validate-versions, node-bindings, check-npm]
-    if: ${{ needs.prepare.outputs.release_node == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && (needs.check-npm.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_node == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && (needs.check-npm.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -2139,7 +2223,8 @@ jobs:
   publish-wasm:
     name: Publish WASM package
     needs: [prepare, validate-versions, wasm-bindings, check-wasm]
-    if: ${{ needs.prepare.outputs.release_wasm == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && (needs.check-wasm.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_wasm == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && (needs.check-wasm.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -2178,7 +2263,8 @@ jobs:
     # html-to-markdown runs 33491693123/33494806766/33495781759 and fixed there in 98d4537c41.
     # Opting out of propagation also disables the implicit needs gate, so every need that must
     # have succeeded is named explicitly below.
-    if: ${{ !cancelled() && needs.prepare.outputs.release_php == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && needs.upload-php-pie-release.result == 'success' && (needs.check-packagist.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (!cancelled() && needs.prepare.outputs.release_php == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && needs.upload-php-pie-release.result == 'success' && (needs.check-packagist.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: xberg-io/actions/publish-packagist@v1
@@ -2194,7 +2280,8 @@ jobs:
   publish-maven:
     name: Publish Maven (Java) package
     needs: [prepare, validate-versions, java-natives, java-natives-musl, check-maven]
-    if: ${{ needs.prepare.outputs.release_java == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && (needs.check-maven.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_java == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && (needs.check-maven.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -2250,7 +2337,8 @@ jobs:
   publish-nuget:
     name: Publish NuGet package
     needs: [prepare, validate-versions, csharp-natives, csharp-natives-musl, check-nuget]
-    if: ${{ needs.prepare.outputs.release_csharp == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && (needs.check-nuget.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_csharp == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && (needs.check-nuget.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -2311,7 +2399,8 @@ jobs:
   publish-hex:
     name: Publish Elixir Hex package
     needs: [prepare, validate-versions, upload-elixir-release, check-hex, crates-gate]
-    if: ${{ !cancelled() && needs.validate-versions.result == 'success' && needs.crates-gate.outputs.ok == 'true' && needs.upload-elixir-release.result == 'success' && needs.prepare.outputs.release_elixir == 'true' && needs.prepare.outputs.is_tag == 'true' && (needs.check-hex.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (!cancelled() && needs.validate-versions.result == 'success' && needs.crates-gate.outputs.ok == 'true' && needs.upload-elixir-release.result == 'success' && needs.prepare.outputs.release_elixir == 'true' && needs.prepare.outputs.is_tag == 'true' && (needs.check-hex.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ubuntu-latest
     environment: hex
     permissions:
@@ -2433,7 +2522,8 @@ jobs:
   kotlin-android-natives:
     name: Build kotlin-android natives (${{ matrix.abi }})
     needs: prepare
-    if: ${{ needs.prepare.outputs.release_kotlin_android == 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_kotlin_android == 'true') }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -2475,7 +2565,8 @@ jobs:
   publish-kotlin-android:
     name: Publish kotlin-android (Maven Central via Gradle)
     needs: [prepare, validate-versions, kotlin-android-natives, check-maven-kotlin-android]
-    if: ${{ needs.prepare.outputs.release_kotlin_android == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && (needs.check-maven-kotlin-android.outputs.kotlin_android_exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_kotlin_android == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && (needs.check-maven-kotlin-android.outputs.kotlin_android_exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -2513,7 +2604,8 @@ jobs:
   publish-zig:
     name: Publish Zig package metadata
     needs: [prepare, validate-versions, zig-package, check-zig, c-ffi-libraries]
-    if: ${{ needs.prepare.outputs.release_zig == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && (needs.check-zig.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_zig == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success' && (needs.check-zig.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v3
@@ -2590,14 +2682,8 @@ jobs:
   publish-homebrew-formula:
     name: Update Homebrew formula source
     needs: [prepare, validate-versions, check-homebrew, cli-release, publish-swift-checksums]
-    if: |
-      always() &&
-      needs.prepare.outputs.release_homebrew == 'true' &&
-      needs.prepare.outputs.is_tag == 'true' &&
-      needs.prepare.outputs.dry_run != 'true' &&
-      needs.validate-versions.result == 'success' &&
-      needs.cli-release.result == 'success' &&
-      (needs.check-homebrew.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')
+    if: >-
+      ${{ !inputs.plugins-only && (always() && needs.prepare.outputs.release_homebrew == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.dry_run != 'true' && needs.validate-versions.result == 'success' && needs.cli-release.result == 'success' && (needs.check-homebrew.outputs.exists != 'true' || needs.prepare.outputs.force_republish == 'true')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -2669,7 +2755,8 @@ jobs:
   publish-scoop-manifest:
     name: Update Scoop manifest
     needs: [prepare, cli-release]
-    if: ${{ needs.prepare.outputs.release_scoop == 'true' && needs.cli-release.result == 'success' && (needs.prepare.outputs.is_tag == 'true' || needs.prepare.outputs.dry_run == 'true') }}
+    if: >-
+      ${{ !inputs.plugins-only && (needs.prepare.outputs.release_scoop == 'true' && needs.cli-release.result == 'success' && (needs.prepare.outputs.is_tag == 'true' || needs.prepare.outputs.dry_run == 'true')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v3
@@ -2745,10 +2832,8 @@ jobs:
   homebrew-bottles:
     name: Build Homebrew bottle (${{ matrix.bottle_tag }})
     needs: [prepare, publish-homebrew-formula]
-    if: |
-      always() &&
-      needs.prepare.outputs.dry_run != 'true' &&
-      needs.publish-homebrew-formula.result == 'success'
+    if: >-
+      ${{ !inputs.plugins-only && (always() && needs.prepare.outputs.dry_run != 'true' && needs.publish-homebrew-formula.result == 'success') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 180
     strategy:
@@ -2816,11 +2901,8 @@ jobs:
     # that did build: the merge step below rewrites the DSL from whatever manifests
     # are present, so surviving platforms still get bottles while the failed one
     # falls back to a source build.
-    if: |
-      always() &&
-      needs.prepare.outputs.dry_run != 'true' &&
-      needs.publish-homebrew-formula.result == 'success' &&
-      needs.homebrew-bottles.result != 'skipped'
+    if: >-
+      ${{ !inputs.plugins-only && (always() && needs.prepare.outputs.dry_run != 'true' && needs.publish-homebrew-formula.result == 'success' && needs.homebrew-bottles.result != 'skipped') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -2946,14 +3028,8 @@ jobs:
       - upload-elixir-release
       - upload-php-pie-release
       - upload-swift-release
-    if: |
-      !cancelled() &&
-      needs.prepare.outputs.is_tag == 'true' &&
-      needs.prepare.outputs.dry_run != 'true' &&
-      needs.validate-versions.result == 'success' &&
-      needs.crates-gate.outputs.ok == 'true' &&
-      needs.cli-release.result == 'success' &&
-      needs.upload-c-ffi-release.result == 'success'
+    if: >-
+      ${{ !inputs.plugins-only && (!cancelled() && needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.dry_run != 'true' && needs.validate-versions.result == 'success' && needs.crates-gate.outputs.ok == 'true' && needs.cli-release.result == 'success' && needs.upload-c-ffi-release.result == 'success') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -3025,14 +3101,8 @@ jobs:
       - upload-php-pie-release
       - upload-swift-release
       - publish-swift-checksums
-    if: |
-      always() &&
-      !cancelled() &&
-      needs.prepare.outputs.is_tag == 'true' &&
-      needs.prepare.outputs.dry_run != 'true' &&
-      needs.validate-versions.result == 'success' &&
-      needs.crates-gate.outputs.ok == 'true' &&
-      !contains(needs.*.result, 'failure')
+    if: >-
+      ${{ !inputs.plugins-only && (always() && !cancelled() && needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.dry_run != 'true' && needs.validate-versions.result == 'success' && needs.crates-gate.outputs.ok == 'true' && !contains(needs.*.result, 'failure')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v3
@@ -3080,15 +3150,8 @@ jobs:
       - upload-php-pie-release
       - upload-swift-release
       - release-finalize
-    if: |
-      always() &&
-      !cancelled() &&
-      needs.prepare.outputs.is_tag == 'true' &&
-      needs.prepare.outputs.dry_run != 'true' &&
-      needs.prepare.outputs.is_prerelease != 'true' &&
-      needs.validate-versions.result == 'success' &&
-      needs.crates-gate.outputs.ok == 'true' &&
-      !contains(needs.*.result, 'failure')
+    if: >-
+      ${{ !inputs.plugins-only && (always() && !cancelled() && needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.dry_run != 'true' && needs.prepare.outputs.is_prerelease != 'true' && needs.validate-versions.result == 'success' && needs.crates-gate.outputs.ok == 'true' && !contains(needs.*.result, 'failure')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v3
@@ -3106,7 +3169,8 @@ jobs:
 
   cli-proxy:
     name: Publish CLI proxy package (npm)
-    if: ${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'cli-proxy-v') }}
+    if: >-
+      ${{ !inputs.plugins-only && (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'cli-proxy-v')) }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -3137,12 +3201,10 @@ jobs:
   # explicitly rather than relying on the `needs:` edge alone. ~keep
 
   publish-plugin-opencode:
-    name: Publish OpenCode plugin to npm
+    name: Publish OpenCode and Pi plugin to npm
     needs: [prepare, validate-versions]
     if: >-
-      ${{ !cancelled() && needs.prepare.outputs.release_any == 'true'
-      && needs.prepare.outputs.is_tag == 'true'
-      && needs.validate-versions.result == 'success' }}
+      ${{ !inputs.plugins-only && (!cancelled() && needs.prepare.outputs.release_any == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -3155,6 +3217,14 @@ jobs:
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org/"
+      - name: Install ai-rulez
+        uses: xberg-io/actions/setup-ai-rulez@23602a93e64f32d552325d5304540927f27d8794
+        with:
+          ai-rulez-version: "5.3.0"
+          source-revision: "bdabc8a6e9211de60ca1e4ad76225ac92fcf218f"
+      - name: Verify generated plugin bundles before publishing
+        run: |
+          ai-rulez verify --plugin
       # ~keep The bundle must be proven to match the release BEFORE the skip probe below,
       # not by publish-npm's `expected-version` afterwards. The probe reads the ARTIFACT's
       # version, so a stale-but-already-published bundle sets skip=true, publish-npm never
@@ -3180,6 +3250,29 @@ jobs:
 
       # Plain ESM adapter — no build step. Skip if this version is already on npm so a
       # release re-run is idempotent (publish-npm has no built-in skip-existing). ~keep
+      - name: Verify packed OpenCode and Pi resources
+        shell: bash
+        run: |
+          pack_dir="$(mktemp -d)"
+          npm pack ./plugin --ignore-scripts --json --pack-destination "$pack_dir" > "$pack_dir/pack.json"
+          node - "$pack_dir/pack.json" <<'NODE'
+          const fs = require('node:fs');
+          const pkg = require('./plugin/package.json');
+          const files = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))[0].files.map(file => file.path);
+          for (const prefix of ['.opencode/plugins/', '.pi/skills/', '.pi/prompts/']) {
+            if (!files.some(path => path.startsWith(prefix))) throw new Error(`Missing packed resource: ${prefix}`);
+          }
+          if (!pkg.keywords.includes('pi-package') || !pkg.pi.skills.length || !pkg.pi.prompts.length) {
+            throw new Error('Missing Pi package metadata');
+          }
+          for (const resource of [...pkg.pi.skills, ...pkg.pi.prompts]) {
+            const relative = resource.replace(/^\.\//, '').replace(/\/$/, '');
+            if (!files.some(path => path === relative || path.startsWith(`${relative}/`))) {
+              throw new Error(`Declared Pi resource was not packed: ${resource}`);
+            }
+          }
+          console.log(`Verified ${files.length} packed files for OpenCode and Pi`);
+          NODE
       - name: Skip if already on npm
         id: guard
         run: |
@@ -3208,9 +3301,7 @@ jobs:
     name: Publish Hermes plugin to PyPI
     needs: [prepare, validate-versions]
     if: >-
-      ${{ !cancelled() && needs.prepare.outputs.release_any == 'true'
-      && needs.prepare.outputs.is_tag == 'true'
-      && needs.validate-versions.result == 'success' }}
+      ${{ !inputs.plugins-only && (!cancelled() && needs.prepare.outputs.release_any == 'true' && needs.prepare.outputs.is_tag == 'true' && needs.validate-versions.result == 'success') }}
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -3220,8 +3311,17 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
+      - name: Install ai-rulez
+        uses: xberg-io/actions/setup-ai-rulez@23602a93e64f32d552325d5304540927f27d8794
+        with:
+          ai-rulez-version: "5.3.0"
+          source-revision: "bdabc8a6e9211de60ca1e4ad76225ac92fcf218f"
+      - name: Verify plugin source and generated artifacts
+        uses: xberg-io/actions/verify-ai-rulez-plugin@23602a93e64f32d552325d5304540927f27d8794
+        with:
+          config-directory: .ai-rulez
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.1.0
+        uses: astral-sh/setup-uv@v10.3.0
         with:
           python-version: "3.13"
       - name: Build Hermes wheel
@@ -3285,7 +3385,8 @@ jobs:
       - upload-elixir-release
       - upload-php-pie-release
       - upload-swift-release
-    if: ${{ always() && needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.dry_run != 'true' }}
+    if: >-
+      ${{ !inputs.plugins-only && (always() && needs.prepare.outputs.is_tag == 'true' && needs.prepare.outputs.dry_run != 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -3458,3 +3559,207 @@ jobs:
             homebrew-bottles=${{ needs.publish-homebrew-bottles.result }}
             scoop=${{ needs.publish-scoop-manifest.result }}
           token: ${{ steps.app-token.outputs.token }}
+
+  publish-plugin-artifacts:
+    name: Publish all plugin runtime artifacts
+    permissions:
+      contents: write
+    needs: [prepare, release-finalize]
+    if: >-
+      ${{ !inputs.plugins-only && (!cancelled() && needs.prepare.outputs.dry_run != 'true' && needs.release-finalize.result == 'success') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+          fetch-depth: 0
+      - name: Install ai-rulez
+        uses: xberg-io/actions/setup-ai-rulez@23602a93e64f32d552325d5304540927f27d8794
+        with:
+          ai-rulez-version: "5.3.0"
+          source-revision: "bdabc8a6e9211de60ca1e4ad76225ac92fcf218f"
+      - name: Verify public skill exports
+        run: python3 scripts/sync_public_skills.py --check
+      - name: Package all supported plugin runtimes
+        uses: xberg-io/actions/package-ai-rulez-plugin@23602a93e64f32d552325d5304540927f27d8794
+        with:
+          cursor-marketplace: "true"
+          tag: ${{ needs.prepare.outputs.tag }}
+          config-directory: .ai-rulez
+          version-sync-script: scripts/sync_plugin_version.py
+      - name: Archive verified runtime bundles and marketplace indexes
+        shell: bash
+        env:
+          PLUGIN_TAG: ${{ needs.prepare.outputs.tag }}
+          PLUGIN_PRODUCT: crawlberg
+        run: |
+          set -euo pipefail
+          test -n "$PLUGIN_TAG"
+          bundle="dist/${PLUGIN_PRODUCT}-plugins-${PLUGIN_TAG//\//-}.tar.gz"
+          tar --sort=name --mtime="@$(git show -s --format=%ct HEAD)" \
+            --owner=0 --group=0 --numeric-owner -cf - -C dist/plugin . | gzip -n > "$bundle"
+          (cd dist && sha256sum "$(basename "$bundle")") > "$bundle.sha256"
+      - name: Attach verified plugin archive and metadata
+        uses: xberg-io/actions/upload-release-assets@v1
+        with:
+          tag: ${{ needs.prepare.outputs.tag }}
+          assets: |
+            dist/*-plugins-*.tar.gz
+            dist/*-plugins-*.tar.gz.sha256
+
+  plugin-release-report:
+    name: Verify all plugin distribution jobs succeeded
+    needs: [prepare, publish-plugin-artifacts, publish-plugin-opencode, publish-plugin-hermes]
+    if: >-
+      ${{ !inputs.plugins-only && (always() && needs.prepare.outputs.dry_run != 'true' && startsWith(needs.prepare.outputs.tag, 'v')) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Reject failed or skipped plugin distribution
+        env:
+          RESULTS_JSON: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PYTHON'
+          import json
+          import os
+
+          results = json.loads(os.environ['RESULTS_JSON'])
+          expected = {'prepare', 'publish-plugin-artifacts', 'publish-plugin-opencode', 'publish-plugin-hermes'}
+          if set(results) != expected:
+              raise SystemExit('Expected preparation and exactly three plugin distribution jobs')
+          failed = [name for name, job in results.items() if job['result'] != 'success']
+          if failed:
+              raise SystemExit(f"Incomplete plugin distribution: {', '.join(failed)}")
+          print('Verified preparation and 3/3 plugin distribution jobs succeeded')
+          PYTHON
+
+  validate-plugin-dispatch:
+    name: Validate plugin-only dispatch branch
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.plugins-only && github.ref != 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        with:
+          script: core.setFailed('Plugin-only publication must run from the main branch.')
+
+  dispatch-plugin-npm:
+    name: Publish missing npm plugin version
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.plugins-only && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+      - name: Install reviewed ai-rulez
+        uses: xberg-io/actions/setup-ai-rulez@23602a93e64f32d552325d5304540927f27d8794
+        with:
+          ai-rulez-version: "5.3.0"
+          source-revision: "bdabc8a6e9211de60ca1e4ad76225ac92fcf218f"
+      - name: Verify plugin versions and generated resources
+        uses: xberg-io/actions/verify-ai-rulez-plugin@23602a93e64f32d552325d5304540927f27d8794
+        with:
+          version-sync-script: scripts/sync_plugin_version.py
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+      - uses: pnpm/action-setup@v6
+        with:
+          version: "12.11.2"
+          run_install: false
+      - name: Read and check the exact npm version
+        id: package
+        shell: bash
+        run: |
+          python3 - <<'PYTHON'
+          import json
+          import os
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          from pathlib import Path
+
+          package = json.loads(Path('plugin/package.json').read_text())
+          name, version = package['name'], package['version']
+          if not name or not version:
+              raise SystemExit('Missing plugin package identity')
+          url = 'https://registry.npmjs.org/' + urllib.parse.quote(name, safe='')
+          url += '/' + urllib.parse.quote(version, safe='')
+          try:
+              with urllib.request.urlopen(url, timeout=30) as response:
+                  published = json.load(response)
+              if published['name'] != name or published['version'] != version:
+                  raise SystemExit('Registry returned an unexpected package identity')
+              exists = True
+          except urllib.error.HTTPError as error:
+              if error.code != 404:
+                  raise
+              exists = False
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f"version={version}\nexists={str(exists).lower()}\n")
+              output.write(f"tag={'next' if '-' in version else 'latest'}\n")
+          print(f"{name}@{version}: {'already published; skipping' if exists else 'not published'}")
+          PYTHON
+      - name: Publish missing npm version with trusted publishing
+        if: steps.package.outputs.exists != 'true'
+        uses: xberg-io/actions/publish-npm@v1
+        with:
+          package-dir: plugin
+          expected-version: ${{ steps.package.outputs.version }}
+          npm-tag: ${{ steps.package.outputs.tag }}
+          access: public
+          provenance: "true"
+          dry-run: ${{ inputs.dry_run }}
+
+  dispatch-plugin-hermes:
+    name: Publish missing Hermes plugin version
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.plugins-only && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+      - name: Install reviewed ai-rulez
+        uses: xberg-io/actions/setup-ai-rulez@23602a93e64f32d552325d5304540927f27d8794
+        with:
+          ai-rulez-version: "5.3.0"
+          source-revision: "bdabc8a6e9211de60ca1e4ad76225ac92fcf218f"
+      - name: Verify plugin versions and generated resources
+        uses: xberg-io/actions/verify-ai-rulez-plugin@23602a93e64f32d552325d5304540927f27d8794
+        with:
+          version-sync-script: scripts/sync_plugin_version.py
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          python-version: "3.13"
+      - name: Read the verified Hermes version
+        id: package
+        shell: bash
+        run: |
+          python3 - <<'PYTHON'
+          import os
+          import tomllib
+          from pathlib import Path
+
+          package = tomllib.loads(Path('plugin/.hermes/package/pyproject.toml').read_text())['project']
+          if not package['name'].endswith('-hermes-plugin') or not package['version']:
+              raise SystemExit('Missing or unexpected Hermes package identity')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f"version={package['version']}\n")
+          PYTHON
+      - name: Build verified Hermes wheel
+        run: uv build --wheel --out-dir dist-hermes plugin/.hermes/package
+      - name: Publish missing Hermes version with trusted publishing
+        uses: xberg-io/actions/publish-pypi@v1
+        with:
+          packages-dir: dist-hermes
+          expected-version: ${{ steps.package.outputs.version }}
+          dry-run: ${{ inputs.dry_run }}

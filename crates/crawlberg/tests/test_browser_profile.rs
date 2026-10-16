@@ -65,6 +65,7 @@ fn config_with_profile(name: &str, save_browser_profile: bool) -> CrawlConfig {
         },
         browser_profile: Some(name.to_owned()),
         save_browser_profile,
+        cookies_enabled: true,
         ..allow_private_config()
     }
 }

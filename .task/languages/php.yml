@@ -164,8 +164,6 @@ tasks:
         platforms: [linux, darwin, windows]
       - cmd: composer install --no-progress --prefer-dist
         platforms: [linux, darwin, windows]
-      - cmd: sed -i.bak 's/failOnRisky="true"/failOnRisky="false"/' phpunit.xml && rm -f phpunit.xml.bak
-        platforms: [linux, darwin, windows]
       - cmd: php -c php-crawlberg.ini vendor/bin/phpunit
         platforms: [linux, darwin]
       - cmd: php -c php-crawlberg.ini vendor\bin\phpunit.bat

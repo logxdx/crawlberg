@@ -1,4 +1,10 @@
 [package]
+include = [
+    "/Cargo.toml",
+    "/Cargo.lock",
+    "/src/**",
+]
+authors.workspace = true
 name = "crawlberg-cli"
 version.workspace = true
 edition.workspace = true
@@ -40,11 +46,14 @@ otel = [
 
 [dependencies]
 clap = { workspace = true }
-crawlberg = { path = "../crawlberg", version = "1.10.3+prowler.1", features = ["native-runtime", "browser"] }
+crawlberg = { path = "../crawlberg", version = "1.11.2+prowler.1", features = ["native-runtime", "browser"] }
 opentelemetry = { workspace = true, optional = true }
 opentelemetry-otlp = { workspace = true, optional = true }
 opentelemetry_sdk = { workspace = true, optional = true }
+serde = { workspace = true }
+serde-value = { workspace = true }
 serde_json = { workspace = true }
+serde_path_to_error = { workspace = true }
 thiserror = { workspace = true, optional = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

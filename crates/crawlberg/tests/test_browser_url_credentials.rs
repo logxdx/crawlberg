@@ -120,8 +120,11 @@ async fn the_credential_goes_to_seed_host_requests_only_and_cookies_still_go_out
     mount(&seed, "/seed.png", png()).await;
     mount(&other, "/third.png", png()).await;
 
-    let Some(outcome) = scrape_in_browser(
+    let mut configuration = browser_config();
+    configuration.cookies_enabled = true;
+    let Some(outcome) = scrape_in_browser_with(
         "the_credential_goes_to_seed_host_requests_only_and_cookies_still_go_out",
+        configuration,
         &format!("http://{USER}:{PASSWORD}@{authority}/"),
     )
     .await

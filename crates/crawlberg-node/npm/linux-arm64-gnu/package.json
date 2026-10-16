@@ -1,6 +1,16 @@
 {
+  "author": {
+    "name": "Na'aman Hirschfeld",
+    "email": "naaman@xberg.io"
+  },
+  "contributors": [
+    {
+      "name": "Tobias Perlstein",
+      "email": "tobias@xberg.io"
+    }
+  ],
   "name": "@xberg-io/crawlberg-linux-arm64-gnu",
-  "version": "1.10.3+prowler.1",
+  "version": "1.11.2+prowler.1",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -16,5 +26,6 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "packageManager": "pnpm@12.11.2"
 }

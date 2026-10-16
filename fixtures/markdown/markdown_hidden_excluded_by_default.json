@@ -1,0 +1,60 @@
+{
+	"id": "markdown_hidden_excluded_by_default",
+	"description": "HTTP Markdown excludes hidden elements and template text by default while preserving visible text",
+	"docs": {
+		"topic": "markdown",
+		"stem": "markdown-hidden-excluded-by-default",
+		"title": "Exclude hidden elements and template text by default"
+	},
+	"tags": [
+		"markdown",
+		"content",
+		"regression"
+	],
+	"input": {
+		"mock_responses": [
+			{
+				"status_code": 200,
+				"headers": {
+					"content-type": "text/html; charset=utf-8"
+				},
+				"body_inline": "<html><body><p>Visible sentence.</p><p hidden>Hidden attribute sentence.</p><div style=\"display:none\">Display none sentence.</div><template><p>Template sentence.</p></template></body></html>"
+			}
+		],
+		"config": {
+			"browser": {
+				"mode": "never"
+			},
+			"content": {
+				"extract_metadata": false
+			}
+		}
+	},
+	"assertions": [
+		{
+			"type": "equals",
+			"field": "status_code",
+			"value": 200
+		},
+		{
+			"type": "contains",
+			"field": "markdown.content",
+			"value": "Visible sentence."
+		},
+		{
+			"type": "not_contains",
+			"field": "markdown.content",
+			"value": "Hidden attribute sentence."
+		},
+		{
+			"type": "not_contains",
+			"field": "markdown.content",
+			"value": "Display none sentence."
+		},
+		{
+			"type": "not_contains",
+			"field": "markdown.content",
+			"value": "Template sentence."
+		}
+	]
+}

@@ -37,6 +37,14 @@ values = [
   "**/Cargo.toml",
   "docs-site/src/snippets/**",
   "docs-site/src/snippets/generated/**",
+  "plugin/plugin.json",
+  "plugin/mcp.json",
+  "plugin/.pi/**",
+  "plugin/.github/**",
+  ".github/plugin/**",
+  ".cursor-plugin/marketplace.json",
+  ".ai-rulez/.generated-manifest.json",
+  "plugin/.ai-rulez/.generated-manifest.json",
   "docs-site/src/snippets/**",
   "**/_generated/**",
   "**/coverage/**",
@@ -70,6 +78,7 @@ values = [
   ".claude-plugin/marketplace.json",
   ".agents/plugins/marketplace.json",
   "/.ai-rulez-generated.json",
+  "skills/**",
 ]
 
 [[entries]]
@@ -109,6 +118,14 @@ values = [
   "**/Cargo.toml",
   "docs-site/src/snippets/**",
   "docs-site/src/snippets/generated/**",
+  "plugin/plugin.json",
+  "plugin/mcp.json",
+  "plugin/.pi/**",
+  "plugin/.github/**",
+  ".github/plugin/**",
+  ".cursor-plugin/marketplace.json",
+  ".ai-rulez/.generated-manifest.json",
+  "plugin/.ai-rulez/.generated-manifest.json",
   "docs-site/src/snippets/**",
   "**/_generated/**",
   "**/coverage/**",
@@ -142,6 +159,8 @@ values = [
   ".claude-plugin/marketplace.json",
   ".agents/plugins/marketplace.json",
   ".ai-rulez-generated.json",
+  "skills/**",
+  "crates/crawlberg/src/ssrf_intercept.rs",
 ]
 
 [[entries]]
@@ -171,6 +190,14 @@ values = [
   "**/Cargo.toml",
   "docs-site/src/snippets/**",
   "docs-site/src/snippets/generated/**",
+  "plugin/plugin.json",
+  "plugin/mcp.json",
+  "plugin/.pi/**",
+  "plugin/.github/**",
+  ".github/plugin/**",
+  ".cursor-plugin/marketplace.json",
+  ".ai-rulez/.generated-manifest.json",
+  "plugin/.ai-rulez/.generated-manifest.json",
   "docs-site/src/snippets/**",
   "**/_generated/**",
   "**/coverage/**",
@@ -204,6 +231,7 @@ values = [
   ".claude-plugin/marketplace.json",
   ".agents/plugins/marketplace.json",
   ".ai-rulez-generated.json",
+  "skills/**",
 ]
 
 [[entries]]
@@ -233,6 +261,14 @@ values = [
   "**/Cargo.toml",
   "docs-site/src/snippets/**",
   "docs-site/src/snippets/generated/**",
+  "plugin/plugin.json",
+  "plugin/mcp.json",
+  "plugin/.pi/**",
+  "plugin/.github/**",
+  ".github/plugin/**",
+  ".cursor-plugin/marketplace.json",
+  ".ai-rulez/.generated-manifest.json",
+  "plugin/.ai-rulez/.generated-manifest.json",
   "docs-site/src/snippets/**",
   "**/_generated/**",
   "**/coverage/**",
@@ -266,6 +302,7 @@ values = [
   ".claude-plugin/marketplace.json",
   ".agents/plugins/marketplace.json",
   ".ai-rulez-generated.json",
+  "skills/**",
 ]
 
 [[entries]]
@@ -282,6 +319,16 @@ values = ["pre-commit"]
 relative_path = "poly.toml"
 key_path = "lint.markdown.rumdl.disable"
 values = ["MD012", "MD013", "MD024", "MD033", "MD036", "MD041", "MD046", "MD051", "MD076"]
+
+[[entries]]
+relative_path = "poly.toml"
+key_path = "lint.php.mago.ignore"
+values = ["strict-assertions", "use-specific-assertions", "no-redundant-variable", "sensitive-parameter"]
+
+[[entries]]
+relative_path = "poly.toml"
+key_path = "lint.php.mago.select"
+values = ["correctness", "security"]
 
 [[entries]]
 relative_path = "poly.toml"

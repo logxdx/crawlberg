@@ -52,7 +52,7 @@ cargo install crawlberg-cli --features "api,mcp"
 <TabItem label="npm">
 
 ```bash
-npm install -g @xberg-io/crawlberg-cli
+pnpm add -g @xberg-io/crawlberg-cli
 ```
 
 Installs a thin proxy that downloads and runs the native `crawlberg` binary from GitHub releases. Requires Node.js 18+; no Rust toolchain needed.
@@ -106,7 +106,7 @@ crawlberg = { version = "0.3", features = ["browser", "ai", "mcp"] }
 ```
 
 :::note[Rust version]
-Crawlberg requires Rust 1.91+ (edition 2024).
+Crawlberg requires Rust 1.95+ (edition 2024).
 :::
 
 
@@ -137,7 +137,7 @@ Wheels are built for glibc Linux (`manylinux`), macOS, and Windows. There is no 
 Install the `@xberg-io/crawlberg` package:
 
 ```bash
-npm install @xberg-io/crawlberg
+pnpm add @xberg-io/crawlberg
 ```
 
 Or with pnpm:
@@ -280,7 +280,7 @@ The Elixir bindings use [Rustler](https://github.com/rusterlium/rustler) NIFs.
 For browser or Node.js environments via wasm-bindgen:
 
 ```bash
-npm install @xberg-io/crawlberg-wasm
+pnpm add @xberg-io/crawlberg-wasm
 ```
 
 ```typescript
@@ -373,22 +373,21 @@ partial**, and the table below is the authoritative statement of it.
 | Rust (crates.io)               | ✅          | ✅ builds from source          |
 | Ruby (RubyGems)                | ✅          | ✅ compiles at install         |
 | Java (Maven Central)           | ✅          | ✅ bundled in the jar          |
-| C# (NuGet)                     | ✅          | ✅ bundled in the package      |
 | Elixir (Hex)                   | ✅          | ✅ precompiled NIF             |
 | **Node (npm)**                 | ✅          | ❌ **not published**           |
 | **Python (PyPI)**              | ✅          | ❌ **not published**           |
 | **Go**                         | ✅          | ❌ **not published**           |
 | **PHP**                        | ✅          | ❌ **not published**           |
+| **C# (NuGet)**                 | ✅          | ❌ **not published**           |
 
-#### Why musl is omitted for Node, Python, Go, and PHP
+#### musl support for Node, Python, Go, PHP, and C#
 
-These four bindings load a native library that must be built specifically for musl. Producing
-and testing that second Linux artifact doubles the release matrix for each of them, and the
-platforms where Alpine is actually used — containers and CI images — are already served by the
-statically linked CLI and the Alpine Docker image. So the omission is a deliberate scope
-decision, not an oversight or a broken build, and it is not scheduled to change. **If you need
-Crawlberg on Alpine, use the CLI or the Docker image, or run your application on a glibc base
-image** such as `node:22-bookworm-slim`, `python:3.13-slim`, or `debian:bookworm-slim`.
+These five bindings do not publish musl native artifacts. The C# NuGet packages publish
+`linux-x64` and `linux-arm64` native runtimes for glibc Linux; the musl RID entries in
+`runtime.json` fall back to those GNU packages rather than providing musl binaries.
+
+**If you need Crawlberg on Alpine, use the CLI or the Docker image, or run your application on
+a glibc base image** such as `node:22-bookworm-slim`, `python:3.13-slim`, or `debian:bookworm-slim`.
 
 Two consequences are worth knowing about, because neither announces itself:
 
@@ -396,7 +395,7 @@ Two consequences are worth knowing about, because neither announces itself:
   `@xberg-io/crawlberg-linux-x64-musl` and `@xberg-io/crawlberg-linux-arm64-musl` as optional
   dependencies. Those package names are registered but hold only a `0.0.1` placeholder, so npm
   skips them without an error and installs no native binary at all. The failure surfaces later,
-  when `require()` cannot find a native module. Do not read a clean `npm install` on Alpine as
+  when `require()` cannot find a native module. Do not read a clean `pnpm add` on Alpine as
   evidence that the package works there.
 - **pip finds no musl wheel and falls back to the sdist.** PyPI carries `manylinux` wheels
   only, so `pip install crawlberg` on Alpine attempts a source build and needs a full Rust

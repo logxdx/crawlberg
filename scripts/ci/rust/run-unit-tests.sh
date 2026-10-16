@@ -27,13 +27,18 @@ TEST_LOG="/tmp/cargo-test-$$.log"
 core_status=0
 echo "=== cargo test -p crawlberg --all-features ==="
 core_test_env=(env RUST_BACKTRACE=full)
+core_test_args=(-p crawlberg --all-features --no-fail-fast --verbose)
+# ~keep The unoptimized core test harness exceeds Apple's 16 MiB compact-unwind offset limit.
+# Optimize only this package's test profile, preserving unwinding and every warning gate.
+if [ "$(uname -s)" = "Darwin" ]; then
+  core_test_args+=(--config 'profile.test.package.crawlberg.opt-level=1')
+fi
 # ~keep Constrained ARM runners opt into serial execution because CPU-wide parallelism makes
 # unrelated Chromium lifecycle tests tear down each other's handlers. Other runners stay parallel.
 if [ -n "${CRAWLBERG_TEST_THREADS:-}" ]; then
   core_test_env+=(RUST_TEST_THREADS="$CRAWLBERG_TEST_THREADS")
 fi
-if ! "${core_test_env[@]}" cargo test \
-  -p crawlberg --all-features --no-fail-fast --verbose 2>&1 | tee -a "$TEST_LOG"; then
+if ! "${core_test_env[@]}" cargo test "${core_test_args[@]}" 2>&1 | tee -a "$TEST_LOG"; then
   core_status="${PIPESTATUS[0]}"
 fi
 
@@ -60,7 +65,11 @@ fi
 # runs against a `crawlberg` binary built without the `mcp` subcommand.
 cli_status=0
 echo "=== cargo test -p crawlberg-cli --features all ==="
-if ! RUST_BACKTRACE=full cargo test -p crawlberg-cli \
+cli_test_env=(env RUST_BACKTRACE=full)
+if [ -n "${CRAWLBERG_TEST_THREADS:-}" ]; then
+  cli_test_env+=(RUST_TEST_THREADS="$CRAWLBERG_TEST_THREADS")
+fi
+if ! "${cli_test_env[@]}" cargo test -p crawlberg-cli \
   --features all \
   --no-fail-fast \
   --verbose 2>&1 | tee -a "$TEST_LOG"; then

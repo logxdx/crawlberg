@@ -95,7 +95,7 @@ vars:
   CMAKE_PATH:
     sh: |
       if [ "{{.OS}}" != "windows" ]; then
-        echo ""
+        command -v cmake || echo cmake
         exit 0
       fi
       # Use PowerShell to reliably find cmake on Windows

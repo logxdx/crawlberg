@@ -4,7 +4,7 @@ import java.util.zip.ZipFile
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    id("com.android.library") version "9.2.1"
+    id("com.android.library") version "9.4.1"
 }
 
 group = "io.xberg.crawlberg.android"
@@ -47,16 +47,16 @@ kotlin {
 
 dependencies {
     // Published Android AAR from Maven Central (verifies artifact resolution)
-    implementation("io.xberg.crawlberg.android:crawlberg-android:1.10.3")
+    implementation("io.xberg.crawlberg.android:crawlberg-android:1.11.2")
     // Jackson for JSON assertion helpers
-    testImplementation("com.fasterxml.jackson.core:jackson-annotations:2.19.0")
-    testImplementation("com.fasterxml.jackson.core:jackson-databind:2.19.0")
-    testImplementation("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.19.0")
+    testImplementation("com.fasterxml.jackson.core:jackson-annotations:2.22")
+    testImplementation("com.fasterxml.jackson.core:jackson-databind:2.22.3")
+    testImplementation("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.22.3")
 
     // jackson-module-kotlin registers constructors/properties for Kotlin data
     // classes, which have no default constructor and cannot be deserialized by
     // plain Jackson without this module.
-    testImplementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.19.0")
+    testImplementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.22.3")
 
     // jspecify for null-safety annotations on wrapped types
     testImplementation("org.jspecify:jspecify:1.0.1")
@@ -80,7 +80,7 @@ dependencies {
 tasks.register("verifyAarPublished") {
     description = "Verify the published Android AAR contains jni and classes.jar"
     doLast {
-        val aarCoord = "io.xberg.crawlberg.android:crawlberg-android:1.10.3"
+        val aarCoord = "io.xberg.crawlberg.android:crawlberg-android:1.11.2"
         val (groupId, artifactId, version) = run {
             val parts = aarCoord.split(':')
             Triple(parts[0], parts[1], parts[2])
