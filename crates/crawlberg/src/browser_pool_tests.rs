@@ -4965,6 +4965,45 @@ fn the_start_ticks_are_read_after_a_program_name_with_spaces_and_parentheses() {
     assert_eq!(start_ticks(b"77 chrome S 1 2"), None, "a line with no name is not read");
 }
 
+// ~keep Process-table absence can precede the child's natural exit on macOS. This witness leaves
+// its status available for ManagedChild::try_wait by observing it with WNOWAIT.
+#[cfg(unix)]
+#[allow(
+    unsafe_code,
+    reason = "waitid observes this owned child without reaping its exit status"
+)]
+fn natural_exit_is_waitable_without_reaping(pid: u32) -> std::io::Result<bool> {
+    let deadline = std::time::Instant::now() + PROCESS_TEST_WAIT;
+    loop {
+        // SAFETY: zero is valid for siginfo_t; waitid writes within that value. The launch callback
+        // still holds the unreaped child, so its PID cannot be reused. WNOWAIT preserves its status.
+        let observed = unsafe {
+            let mut info: libc::siginfo_t = std::mem::zeroed();
+            if libc::waitid(
+                libc::P_PID,
+                pid,
+                &mut info,
+                libc::WEXITED | libc::WNOWAIT | libc::WNOHANG,
+            ) != 0
+            {
+                Err(std::io::Error::last_os_error())
+            } else {
+                Ok(info.si_pid() != 0)
+            }
+        };
+        match observed {
+            Ok(true) => return Ok(true),
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(error) => return Err(error),
+            Ok(false) => {}
+        }
+        if std::time::Instant::now() >= deadline {
+            return Ok(false);
+        }
+        std::thread::sleep(PROFILE_USERS_POLL_INTERVAL);
+    }
+}
+
 /// A launch whose Chrome has ended before its process is read reports that exit, with its status.
 /// macOS no longer shows such a process, and the launch then said that the process table does not
 /// show the Chrome, which hid the cause.
@@ -4978,7 +5017,7 @@ async fn a_launch_whose_chrome_ended_before_the_read_reports_its_exit() {
     let mut ended = None;
 
     let outcome = start_listed_chrome_reading(&path, &config, |pid| {
-        ended = Some(ended_within_the_wait(pid));
+        ended = Some(natural_exit_is_waitable_without_reaping(pid).expect("the child's natural exit is observable"));
         None
     });
 
