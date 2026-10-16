@@ -4,6 +4,13 @@ All notable changes to crawlberg are documented here.
 
 ## [Unreleased]
 
+## [1.11.2] - 2026-10-16
+
+### Fixed
+
+- Browser-backed pages wait for required Chrome startup acknowledgements before reporting readiness,
+  avoiding premature use and teardown.
+
 ## [1.11.1] - 2026-10-16
 
 ### Fixed

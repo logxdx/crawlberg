@@ -2075,6 +2075,28 @@ fn take_open_waiter(waiters: &mut HashMap<TargetId, RootWaiter>, target: &Target
     waiters.remove(target).filter(|waiter| !waiter.is_closed())
 }
 
+fn acknowledge_ready_roots(
+    shared: &Shared,
+    armed_targets: &HashMap<TargetId, HashSet<String>>,
+    root_waiters: &mut HashMap<TargetId, RootWaiter>,
+) -> bool {
+    let ready = root_waiters
+        .keys()
+        .filter(|root| armed_targets.get(*root).is_some_and(HashSet::is_empty))
+        .cloned()
+        .collect::<Vec<_>>();
+    for root in ready {
+        if let Some(waiter) = root_waiters.remove(&root) {
+            if !child_policy_acknowledged(&lock(&shared.registry), &root) {
+                let _ = waiter.send(Err("root target has no acknowledged policy".to_owned()));
+                return false;
+            }
+            let _ = waiter.send(Ok(()));
+        }
+    }
+    true
+}
+
 /// A tab the controller holds until its page has proved its boundary. The controller never
 /// times the chain: a held tab runs nothing, and the fetch that needs its page bounds the wait
 /// with its own deadline and disposes the context when that passes (xberg-io/crawlberg#705). ~keep
@@ -2132,7 +2154,7 @@ fn child_pending_in(kind: ChildPendingKind, context: Option<BrowserContextId>) -
 fn child_capacity_used(
     pending: &HashMap<u64, ChildPending>,
     root_waiters: &HashMap<TargetId, RootWaiter>,
-    armed_targets: &HashSet<TargetId>,
+    armed_targets: &HashMap<TargetId, HashSet<String>>,
     session_targets: &HashMap<String, TargetId>,
     structural_sessions: &HashMap<String, StructuralTarget>,
 ) -> usize {
@@ -2392,7 +2414,7 @@ where
     let mut next_id = 1_u64;
     let mut pending = HashMap::<u64, ChildPending>::new();
     let mut root_waiters = HashMap::<TargetId, RootWaiter>::new();
-    let mut armed_targets = HashSet::<TargetId>::new();
+    let mut armed_targets = HashMap::<TargetId, HashSet<String>>::new();
     let mut session_targets = HashMap::<String, TargetId>::new();
     let mut structural_sessions = HashMap::<String, StructuralTarget>::new();
     let mut drains = Vec::<ChildDrain>::new();
@@ -2491,7 +2513,7 @@ where
                         let _ = done.send(Err("root target has no acknowledged policy".to_owned()));
                         return child_fail(shared, "root_policy_unacknowledged");
                     }
-                    if armed_targets.contains(&root) {
+                    if armed_targets.get(&root).is_some_and(HashSet::is_empty) {
                         let _ = done.send(Ok(()));
                         continue;
                     }
@@ -2621,11 +2643,25 @@ where
                                 return child_fail(shared, "recursive_attach_ack");
                             }
                             if armed_targets.len() >= CHILD_CONTROLLER_PENDING_LIMIT
-                                && !armed_targets.contains(&target)
+                                && !armed_targets.contains_key(&target)
                             {
                                 return child_fail(shared, "capacity_exceeded");
                             }
-                            armed_targets.insert(target.clone());
+                            // ~keep A root is exposed only after its own resume and its held
+                            // ~keep structural parent's resume are acknowledged. Record the parent
+                            // ~keep before its structural state can be removed in either ACK order.
+                            let required_resumes = armed_targets.entry(target.clone()).or_default();
+                            if waiting_for_debugger || structural_parent.is_some() {
+                                required_resumes.insert(session.clone());
+                            }
+                            if let Some(parent_session) = structural_parent.as_ref() {
+                                let Some(parent) = structural_sessions.get(parent_session) else {
+                                    return child_fail(shared, "structural_parent_missing");
+                                };
+                                if parent.waiting_for_debugger {
+                                    required_resumes.insert(parent.session.clone());
+                                }
+                            }
                             // ~keep Chrome reports a page under a debugger-held tab as not waiting,
                             // ~keep but resuming only the tab leaves window.open blocked. Resume the
                             // ~keep child session after its recursive interception boundary is armed.
@@ -2676,12 +2712,8 @@ where
                                 }
                                 pending.insert(id, child_pending_in(ChildPendingKind::Boundary { session: parent.session.clone() }, command_context.clone()));
                             }
-                            if let Some(waiter) = root_waiters.remove(&target) {
-                                if !child_policy_acknowledged(&lock(&shared.registry), &target) {
-                                    let _ = waiter.send(Err("root target has no acknowledged policy".to_owned()));
-                                    return child_fail(shared, "root_policy_unacknowledged");
-                                }
-                                let _ = waiter.send(Ok(()));
+                            if !acknowledge_ready_roots(shared, &armed_targets, &mut root_waiters) {
+                                return child_fail(shared, "root_policy_unacknowledged");
                             }
                         }
                         ChildPendingKind::StructuralArm { session } => {
@@ -2719,7 +2751,15 @@ where
                             let pending_command = if matches!(kind, ChildPendingKind::Close) { "close" } else { "boundary" };
                             return failure::child_ack_fail(shared, pending_command, value["error"]["code"].as_i64());
                         }
-                        ChildPendingKind::Boundary { .. } | ChildPendingKind::Close => {}
+                        ChildPendingKind::Boundary { session } => {
+                            for required_resumes in armed_targets.values_mut() {
+                                required_resumes.remove(&session);
+                            }
+                            if !acknowledge_ready_roots(shared, &armed_targets, &mut root_waiters) {
+                                return child_fail(shared, "root_policy_unacknowledged");
+                            }
+                        }
+                        ChildPendingKind::Close => {}
                         ChildPendingKind::ForeignRetirementCensus { target, session } => {
                             let Ok(infos) = serde_json::from_value::<Vec<TargetInfo>>(value["result"]["targetInfos"].clone())
                                 else { return child_fail(shared, "foreign_census_parse") };
@@ -2756,6 +2796,18 @@ where
                             pending.retain(|_, pending| {
                                 pending.context.as_ref() != Some(&context)
                                     || !matches!(pending.kind, ChildPendingKind::Boundary { .. })
+                            });
+                            let registry = lock(&shared.registry);
+                            armed_targets.retain(|root, _| {
+                                if registry.context_targets.get(root) != Some(&context) {
+                                    return true;
+                                }
+                                if let Some(waiter) = root_waiters.remove(root) {
+                                    let _ = waiter.send(Err(
+                                        "root target context was disposed before its boundary was acknowledged".to_owned(),
+                                    ));
+                                }
+                                false
                             });
                             drains.push(ChildDrain { context, done });
                         }
@@ -5266,11 +5318,11 @@ mod tests {
         armed: oneshot::Receiver<Result<(), String>>,
     ) {
         answer_child_command(socket, arm).await;
-        armed.await.expect("root arm sender").expect("root arm acknowledgement");
         let resume = next_child_message(socket).await;
         assert_eq!(resume["method"], "Runtime.runIfWaitingForDebugger");
         assert_eq!(resume["sessionId"], "S-ROOT");
         answer_child_command(socket, &resume).await;
+        armed.await.expect("root arm sender").expect("root arm acknowledgement");
     }
 
     async fn send_attached_target(
@@ -6492,7 +6544,7 @@ mod tests {
         let context = register_owned_context(&shared, &page);
         let (mut socket, commands, controller) =
             test_child_controller(Arc::clone(&shared), Duration::from_millis(250)).await;
-        let (done, armed) = oneshot::channel();
+        let (done, mut armed) = oneshot::channel();
         commands
             .send(super::ChildCommand::Arm {
                 root: page.root.clone(),
@@ -6503,9 +6555,9 @@ mod tests {
         send_attached_target_with_waiting(&mut socket, "S-ROOT", "ROOT", "page", None, &context, true).await;
         let recursive = next_child_message(&mut socket).await;
         answer_child_command(&mut socket, &recursive).await;
-        armed.await.expect("root sender").expect("root armed");
         let resume = next_child_message(&mut socket).await;
         assert_eq!(resume["method"], "Runtime.runIfWaitingForDebugger");
+        assert_root_readiness_pending(&mut armed).await;
         retire_child_test_context(&shared, &context);
         let (done, mut drained) = oneshot::channel();
         commands
@@ -6523,6 +6575,10 @@ mod tests {
             .await
             .expect("proven disposal retires the missing resume acknowledgement")
             .expect("controller stays healthy");
+        assert_eq!(
+            armed.await.expect("disposed root readiness sender"),
+            Err("root target context was disposed before its boundary was acknowledged".to_owned()),
+        );
         commands.send(super::ChildCommand::Stop).await.expect("stop controller");
         assert!(controller.await.expect("controller task"));
     }
@@ -6536,7 +6592,7 @@ mod tests {
         let context = register_owned_context(&shared, &page);
         let (mut socket, commands, controller) =
             test_child_controller(Arc::clone(&shared), Duration::from_millis(100)).await;
-        let (done, armed) = oneshot::channel();
+        let (done, mut armed) = oneshot::channel();
         commands
             .send(super::ChildCommand::Arm {
                 root: page.root.clone(),
@@ -6547,15 +6603,16 @@ mod tests {
         send_attached_target_with_waiting(&mut socket, "S-ROOT", "ROOT", "page", None, &context, true).await;
         let recursive = next_child_message(&mut socket).await;
         answer_child_command(&mut socket, &recursive).await;
-        armed.await.expect("root sender").expect("root armed");
         let resume = next_child_message(&mut socket).await;
         assert_eq!(resume["method"], "Runtime.runIfWaitingForDebugger");
+        assert_root_readiness_pending(&mut armed).await;
 
         let_time_pass(Duration::from_secs(5)).await;
         assert!(
             !controller.is_finished(),
             "a live context's missing resume acknowledgement is waited for, not timed"
         );
+        assert_root_readiness_pending(&mut armed).await;
         commands.send(super::ChildCommand::Stop).await.expect("stop");
         assert!(
             tokio::time::timeout(Duration::from_secs(5), controller)
@@ -7441,6 +7498,165 @@ mod tests {
         assert!(controller.await.expect("child controller task"));
     }
 
+    async fn request_root_readiness(
+        commands: &mpsc::Sender<super::ChildCommand>,
+        root: TargetId,
+    ) -> oneshot::Receiver<Result<(), String>> {
+        let (done, armed) = oneshot::channel();
+        commands
+            .send(super::ChildCommand::Arm { root, done })
+            .await
+            .expect("request root readiness");
+        armed
+    }
+
+    async fn assert_root_readiness_pending(armed: &mut oneshot::Receiver<Result<(), String>>) {
+        assert!(
+            tokio::time::timeout(Duration::from_millis(20), armed).await.is_err(),
+            "root readiness must wait for every required resume acknowledgement"
+        );
+    }
+
+    #[tokio::test]
+    async fn root_readiness_waits_for_its_resume_ack_including_the_prearmed_fast_path() {
+        for prearmed in [false, true] {
+            let page = watched("ROOT");
+            let shared = Arc::new(shared_with(&page, "OTHER"));
+            let context = register_owned_context(&shared, &page);
+            let (mut socket, commands, controller) = test_child_controller(shared, Duration::from_millis(250)).await;
+            let mut armed = if prearmed {
+                None
+            } else {
+                Some(request_root_readiness(&commands, page.root.clone()).await)
+            };
+            let recursive = begin_root_arm(&mut socket, &context).await;
+            answer_child_command(&mut socket, &recursive).await;
+            let resume = next_child_message(&mut socket).await;
+            assert_eq!(resume["method"], "Runtime.runIfWaitingForDebugger");
+            assert_eq!(resume["sessionId"], "S-ROOT");
+            if prearmed {
+                armed = Some(request_root_readiness(&commands, page.root.clone()).await);
+            }
+            let mut armed = armed.expect("root readiness receiver");
+            assert_root_readiness_pending(&mut armed).await;
+            answer_child_command(&mut socket, &resume).await;
+            tokio::time::timeout(Duration::from_secs(1), armed)
+                .await
+                .expect("resume acknowledgement releases root readiness")
+                .expect("root readiness sender")
+                .expect("root is ready");
+            commands.send(super::ChildCommand::Stop).await.expect("stop controller");
+            assert!(controller.await.expect("controller task"));
+        }
+    }
+
+    #[tokio::test]
+    async fn root_readiness_waits_for_child_and_structural_parent_resume_acks_in_either_order() {
+        for (tab_first, parent_first, prearmed) in [
+            (true, true, false),
+            (true, false, false),
+            (false, true, false),
+            (false, false, false),
+            (true, true, true),
+            (true, false, true),
+            (false, true, true),
+            (false, false, true),
+        ] {
+            let page = watched("ROOT");
+            let shared = Arc::new(shared_with(&page, "OTHER"));
+            let context = register_owned_context(&shared, &page);
+            let (mut socket, commands, controller) = test_child_controller(shared, Duration::from_millis(250)).await;
+            let mut armed = if prearmed {
+                None
+            } else {
+                Some(request_root_readiness(&commands, page.root.clone()).await)
+            };
+            send_attached_target_with_waiting(&mut socket, "S-TAB", "TAB", "tab", None, &context, true).await;
+            let tab_arm = next_child_message(&mut socket).await;
+            assert_eq!(tab_arm["sessionId"], "S-TAB");
+            if tab_first {
+                answer_child_command(&mut socket, &tab_arm).await;
+            }
+            send_attached_target_from_parent(
+                &mut socket,
+                "S-ROOT",
+                "ROOT",
+                "page",
+                None,
+                &context,
+                false,
+                Some("S-TAB"),
+            )
+            .await;
+            let recursive = next_child_message(&mut socket).await;
+            assert_eq!(recursive["sessionId"], "S-ROOT");
+            answer_child_command(&mut socket, &recursive).await;
+            let child_resume = next_child_message(&mut socket).await;
+            assert_eq!(child_resume["method"], "Runtime.runIfWaitingForDebugger");
+            assert_eq!(child_resume["sessionId"], "S-ROOT");
+            if prearmed {
+                armed = Some(request_root_readiness(&commands, page.root.clone()).await);
+            }
+            let mut armed = armed.expect("root readiness receiver");
+            assert_root_readiness_pending(&mut armed).await;
+            if !tab_first && !parent_first {
+                answer_child_command(&mut socket, &child_resume).await;
+                assert_root_readiness_pending(&mut armed).await;
+            }
+            if !tab_first {
+                answer_child_command(&mut socket, &tab_arm).await;
+            }
+            let parent_resume = next_child_message(&mut socket).await;
+            assert_eq!(parent_resume["method"], "Runtime.runIfWaitingForDebugger");
+            assert_eq!(parent_resume["sessionId"], "S-TAB");
+            if parent_first {
+                answer_child_command(&mut socket, &parent_resume).await;
+                assert_root_readiness_pending(&mut armed).await;
+                answer_child_command(&mut socket, &child_resume).await;
+            } else {
+                if tab_first {
+                    answer_child_command(&mut socket, &child_resume).await;
+                    assert_root_readiness_pending(&mut armed).await;
+                }
+                answer_child_command(&mut socket, &parent_resume).await;
+            }
+            tokio::time::timeout(Duration::from_secs(1), armed)
+                .await
+                .expect("both resume acknowledgements release root readiness")
+                .expect("root readiness sender")
+                .expect("root is ready");
+            commands.send(super::ChildCommand::Stop).await.expect("stop controller");
+            assert!(controller.await.expect("controller task"));
+        }
+    }
+
+    #[tokio::test]
+    async fn root_readiness_does_not_wait_for_an_unrelated_workers_resume_ack() {
+        let page = watched("ROOT");
+        let shared = Arc::new(shared_with(&page, "OTHER"));
+        let context = register_owned_context(&shared, &page);
+        let (mut socket, commands, controller) = test_child_controller(shared, Duration::from_millis(250)).await;
+        send_attached_target(&mut socket, "S-WORKER", "WORKER", Some("ROOT"), &context).await;
+        let worker_arm = next_child_message(&mut socket).await;
+        answer_child_command(&mut socket, &worker_arm).await;
+        let worker_resume = next_child_message(&mut socket).await;
+        assert_eq!(worker_resume["method"], "Runtime.runIfWaitingForDebugger");
+        assert_eq!(worker_resume["sessionId"], "S-WORKER");
+        let armed = request_root_readiness(&commands, page.root.clone()).await;
+        let recursive = begin_root_arm(&mut socket, &context).await;
+        answer_child_command(&mut socket, &recursive).await;
+        let resume = next_child_message(&mut socket).await;
+        assert_eq!(resume["sessionId"], "S-ROOT");
+        answer_child_command(&mut socket, &resume).await;
+        tokio::time::timeout(Duration::from_secs(1), armed)
+            .await
+            .expect("an unrelated pending resume cannot delay root readiness")
+            .expect("root readiness sender")
+            .expect("root is ready");
+        commands.send(super::ChildCommand::Stop).await.expect("stop controller");
+        assert!(controller.await.expect("controller task"));
+    }
+
     #[tokio::test]
     async fn the_watched_root_resumes_after_its_existing_boundary_ack() {
         let page = watched("ROOT");
@@ -7467,11 +7683,11 @@ mod tests {
             "the watched root resumed before its existing boundary was acknowledged"
         );
         answer_child_command(&mut socket, &root_arm).await;
-        armed.await.expect("root arm sender").expect("root arm acknowledgement");
         let resume = next_child_message(&mut socket).await;
         assert_eq!(resume["method"], "Runtime.runIfWaitingForDebugger");
         assert_eq!(resume["sessionId"], "S-ROOT");
         answer_child_command(&mut socket, &resume).await;
+        armed.await.expect("root arm sender").expect("root arm acknowledgement");
 
         commands
             .send(super::ChildCommand::Stop)

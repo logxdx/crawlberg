@@ -1,13 +1,13 @@
 {
   "schema_version": "v1",
-  "source_hash": "blake3:45e65d2b44a335d1ad42ab4367641dffbe5a7fd2f14a4dac721b9f1b64a89a94",
+  "source_hash": "blake3:2fb291f60784050b5993ed627070aa79f103ef9c1198aee94730a10a871ba894",
   "outputs": {
     ".claude-plugin/plugin.json": {
-      "content_hash": "blake3:b0d5ce3fd66c08c369229081827e0fe0052df5df79b36aebfe2ac9ee8c4947c9",
+      "content_hash": "blake3:1a5c4f7737d571f530dbcf8dbb72a125056bba6ab7ef1e31a01eeca6c2083c61",
       "mode": "0644"
     },
     ".codex-plugin/plugin.json": {
-      "content_hash": "blake3:cd9194f67975cc9621ac906d382c1af1bd078140b9ebac7311e5f251be03ca6a",
+      "content_hash": "blake3:e5c722a8245a276d350356507794b1311f2e9332d9962c22e820b4c4c3828565",
       "mode": "0644"
     },
     ".cursor-plugin/commands/crawlberg-crawl.md": {
@@ -19,7 +19,7 @@
       "mode": "0644"
     },
     ".cursor-plugin/plugin.json": {
-      "content_hash": "blake3:e55a1335404bc72de4fe4260dc3284797dd34bb869ccb8be1f84f88412e3d824",
+      "content_hash": "blake3:154f99b4602d3a3250d484601347722050d9a2723daa2d277657c21fdf08d96c",
       "mode": "0644"
     },
     ".cursor-plugin/skills/crawlberg-automating-the-browser/SKILL.md": {
@@ -79,15 +79,15 @@
       "mode": "0644"
     },
     ".factory-plugin/plugin.json": {
-      "content_hash": "blake3:5d2414064b25db5c6475f2cf3970d1caf92e71367fd14ca977fbf5cf445b9835",
+      "content_hash": "blake3:d1daa6db2ebb9c11f83767ef9f83e011546f2fd7848c56d561a74417aaff54ea",
       "mode": "0644"
     },
     ".hermes/package/pyproject.toml": {
-      "content_hash": "blake3:c490b43265a99b99f4d9dd09bc8a278c8ba2f1436b235c2e181a4e889f0bee01",
+      "content_hash": "blake3:2726b552888a57f359f8aaf67330e0d206826da860240de58cd45fe1719fe77c",
       "mode": "0644"
     },
     ".hermes/package/src/crawlberg_hermes_plugin/__init__.py": {
-      "content_hash": "blake3:092b75df6d49f26a7ab63e7441700940995024a1e89e01f70055f324ee7ef119",
+      "content_hash": "blake3:87905020cfc8972130dd25b6eeafcf2730e037ca72eb7b9baaf4e12ded818fcf",
       "mode": "0644"
     },
     ".hermes/package/src/crawlberg_hermes_plugin/commands/crawlberg-crawl.md": {
@@ -103,7 +103,7 @@
       "mode": "0644"
     },
     ".hermes/package/src/crawlberg_hermes_plugin/plugin.yaml": {
-      "content_hash": "blake3:3001a903415d0d46d9a3fa822e4bcf42905d7706d02693e533b43cab816df1b8",
+      "content_hash": "blake3:e8fb656b400f93687ee84b19a867278f13dca48d827305cbc7eb1b463a967882",
       "mode": "0644"
     },
     ".hermes/package/src/crawlberg_hermes_plugin/skills/crawlberg-automating-the-browser/SKILL.md": {
@@ -163,7 +163,7 @@
       "mode": "0644"
     },
     ".hermes/plugins/crawlberg/__init__.py": {
-      "content_hash": "blake3:092b75df6d49f26a7ab63e7441700940995024a1e89e01f70055f324ee7ef119",
+      "content_hash": "blake3:87905020cfc8972130dd25b6eeafcf2730e037ca72eb7b9baaf4e12ded818fcf",
       "mode": "0644"
     },
     ".hermes/plugins/crawlberg/commands/crawlberg-crawl.md": {
@@ -179,7 +179,7 @@
       "mode": "0644"
     },
     ".hermes/plugins/crawlberg/plugin.yaml": {
-      "content_hash": "blake3:3001a903415d0d46d9a3fa822e4bcf42905d7706d02693e533b43cab816df1b8",
+      "content_hash": "blake3:e8fb656b400f93687ee84b19a867278f13dca48d827305cbc7eb1b463a967882",
       "mode": "0644"
     },
     ".hermes/plugins/crawlberg/skills/crawlberg-automating-the-browser/SKILL.md": {
@@ -407,11 +407,11 @@
       "mode": "0644"
     },
     "gemini-extension.json": {
-      "content_hash": "blake3:93c1568790edb0097287a083b88d7dda87d3ae874dc4ef88b7c5b0cf0af7ce2e",
+      "content_hash": "blake3:287d5bb04273fb11297b6a88940907d12bc71fd09a099a7455b54f952206d719",
       "mode": "0644"
     },
     "kimi.plugin.json": {
-      "content_hash": "blake3:e8dd8e0b2786d1258f0a8af90516088757dd2feda462bebc918987f998d8d207",
+      "content_hash": "blake3:4c463f5bfe6274b3b35136305125212d168b7de526477ac47762a56ee67f70a9",
       "mode": "0644"
     },
     "mcp.json": {
@@ -419,11 +419,11 @@
       "mode": "0644"
     },
     "package.json": {
-      "content_hash": "blake3:ea662bd522f60066182c3bcff9a8be8399e94455b0e852d420fb6cdff128d25a",
+      "content_hash": "blake3:11d0ef9c020e73e2bb2dc628a1834aa0d4c791f32d5fd6007b24a26e24615231",
       "mode": "0644"
     },
     "plugin.json": {
-      "content_hash": "blake3:6e42fed9f42348f3b6672cbbeb5f501b1659cfc8d2facca13c828366791a07ca",
+      "content_hash": "blake3:dd1d3b5e139d75bcd7804c1afee0d3052e4b8beb7d4d081a9edebad3f63570f0",
       "mode": "0644"
     },
     "scripts/mcp-launch.sh": {
