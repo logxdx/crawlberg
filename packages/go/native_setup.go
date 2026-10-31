@@ -7,4 +7,4 @@ package crawlberg
 // module is upgraded without re-running `cmd/setup`, the previously written shim (built
 // against the old version) references an identifier that no longer exists here, turning
 // silent native-library skew into a compile-time error instead of a runtime crash.
-const RequireNativeSetup_1_12_4 = "1.12.4"
+const RequireNativeSetup_1_12_4_prowler_1 = "1.12.4+prowler.1"

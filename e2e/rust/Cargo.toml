@@ -7,7 +7,7 @@
 
 [package]
 name = "crawlberg-e2e-rust"
-version = "1.12.4"
+version = "1.12.4+prowler.1"
 edition = "2024"
 license = "MIT"
 publish = false

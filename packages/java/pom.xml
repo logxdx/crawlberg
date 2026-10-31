@@ -17,7 +17,7 @@
 
   <groupId>io.xberg.crawlberg</groupId>
   <artifactId>crawlberg</artifactId>
-  <version>1.12.4</version>
+  <version>1.12.4+prowler.1</version>
   <packaging>jar</packaging>
 
   <name>crawlberg</name>

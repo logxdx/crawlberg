@@ -36,7 +36,7 @@ browser-chromiumoxide = ["crawlberg/browser-chromiumoxide"]
 
 [dependencies]
 ahash = "0.8"
-crawlberg = { path = "../crawlberg", version = "1.12.4", default-features = false }
+crawlberg = { path = "../crawlberg", version = "1.12.4+prowler.1", default-features = false }
 futures-util = "0.3"
 serde = "1"
 serde_json = "1"

@@ -7,7 +7,7 @@ title: "Go API Reference"
 <!-- To regenerate: alef docs -->
 <!-- To verify freshness: alef verify -->
 
-## Go API Reference <span class="version-badge">v1.12.4</span>
+## Go API Reference <span class="version-badge">v1.12.4+prowler.1</span>
 
 ### Functions
 

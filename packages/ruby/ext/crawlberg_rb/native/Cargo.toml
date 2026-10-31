@@ -5,7 +5,7 @@
 
 [package]
 name = "crawlberg-rb"
-version = "1.12.4"
+version = "1.12.4+prowler.1"
 edition = "2024"
 authors = ["Na'aman Hirschfeld <naaman@xberg.io>", "Tobias Perlstein <tobias@xberg.io>"]
 license = "MIT"
@@ -23,7 +23,7 @@ path = "../src/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-crawlberg = { version = "1.12.4", path = "../../../../../crates/crawlberg", features = ["interact", "browser-chromiumoxide"] }
+crawlberg = { version = "1.12.4+prowler.1", path = "../../../../../crates/crawlberg", features = ["interact", "browser-chromiumoxide"] }
 futures = "0.3"
 magnus = "0.9"
 rb-sys = ">=0.9.130, <0.10"
