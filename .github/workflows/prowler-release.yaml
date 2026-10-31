@@ -1,0 +1,169 @@
+# prowler: builds the Python wheels and the Dart native libraries of this branch and
+# publishes them as assets of the fork's GitHub Release `v<workspace version>`.
+# Each push rebuilds and replaces the assets of that version; the tag follows the branch.
+name: Prowler release
+
+on:
+  push:
+    branches: [prowler/stealth-link-traps-sitemap-shutdown-logging]
+    paths:
+      - "crates/**"
+      - "packages/python/**"
+      - "packages/dart/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - "alef.toml"
+      - ".github/workflows/prowler-release.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: prowler-release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: read
+        run: echo "version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)" >> "$GITHUB_OUTPUT"
+
+  python-wheels:
+    name: Python wheel (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-26, macos-26-intel, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+
+      # BoringSSL (stealth transport) assembles with NASM on Windows.
+      - name: NASM (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          choco install -y --no-progress nasm
+          echo "C:\\Program Files\\NASM" >> "$GITHUB_PATH"
+
+      # One abi3 wheel per platform (pyo3/abi3-py310). The stealth transport needs cmake,
+      # libclang (bindgen) and perl inside the manylinux container.
+      - uses: xberg-io/actions/build-python-wheels@v1
+        with:
+          python-version: "3.13"
+          package-dir: packages/python
+          cibw-build: "cp310-*"
+          upload-artifact: "false"
+          manylinux-x86_64-image: manylinux_2_28
+          manylinux-aarch64-image: manylinux_2_28
+          cibw-before-build-linux: "dnf install -y cmake clang-devel perl && pip install maturin uv && source ~/.cargo/env"
+          cibw-environment-macos: 'MATURIN_BUILD_ARGS="" CARGO_BUILD_LOCKED=true MACOSX_DEPLOYMENT_TARGET=11.0'
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheel-${{ matrix.os }}
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+
+  dart-natives:
+    name: Dart native (${{ matrix.blob }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, blob: linux-x86_64, lib: libcrawlberg_dart.so }
+          - { os: ubuntu-24.04-arm, blob: linux-aarch64, lib: libcrawlberg_dart.so }
+          - { os: macos-26, blob: macos-aarch64, lib: libcrawlberg_dart.dylib }
+          - { os: macos-26-intel, blob: macos-x86_64, lib: libcrawlberg_dart.dylib }
+          - { os: windows-latest, blob: windows-x86_64, lib: crawlberg_dart.dll }
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build
+        shell: bash
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          cargo build --locked -p crawlberg-dart --release
+          mkdir -p out && cp "target/release/${{ matrix.lib }}" out/
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dart-${{ matrix.blob }}
+          path: out/${{ matrix.lib }}
+          if-no-files-found: error
+
+  dart-android:
+    name: Dart native (android)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build with cargo-ndk
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup target add aarch64-linux-android x86_64-linux-android
+          cargo install cargo-ndk --locked
+          export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          cargo ndk -t arm64-v8a -t x86_64 -P 21 -o out build --locked -p crawlberg-dart --release
+          find out -name '*.so'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dart-android
+          path: out/
+          if-no-files-found: error
+
+  release:
+    needs: [version, python-wheels, dart-natives, dart-android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - name: Assemble assets
+        run: |
+          mkdir -p dist
+          cp artifacts/wheel-*/*.whl dist/
+          pack() {  # pack <blob> <library path>
+            local archive="dist/crawlberg-dart-v${VERSION}-$1.tar.gz"
+            tar -czf "$archive" -C "$(dirname "$2")" "$(basename "$2")"
+            (cd dist && sha256sum "$(basename "$archive")" > "$(basename "$archive").sha256")
+          }
+          for blob in linux-x86_64 linux-aarch64 macos-aarch64 macos-x86_64 windows-x86_64; do
+            pack "$blob" "$(ls artifacts/dart-$blob/*)"
+          done
+          for abi in arm64-v8a x86_64; do
+            pack "android-$abi" "artifacts/dart-android/$abi/libcrawlberg_dart.so"
+          done
+          ls -l dist
+
+      - name: Publish
+        run: |
+          tag="v${VERSION}"
+          git push -f origin "${GITHUB_SHA}:refs/tags/${tag}"
+          notes=$(printf '%s\n' \
+            "Built from \`${GITHUB_SHA}\` on \`${GITHUB_REF_NAME}\`." \
+            "" \
+            "Python (abi3, CPython 3.10+): \`pip install crawlberg==${VERSION} --find-links https://github.com/${GITHUB_REPOSITORY}/releases/expanded_assets/${tag}\`" \
+            "" \
+            "Dart: \`dart run crawlberg:download_libs\` fetches the \`crawlberg-dart-v${VERSION}-<os>-<arch>\` asset for Linux, macOS and Windows." \
+            "Android (Flutter): put \`libcrawlberg_dart.so\` from \`crawlberg-dart-v${VERSION}-android-<abi>.tar.gz\` under \`android/app/src/main/jniLibs/<abi>/\` and call \`RustLib.init(externalLibrary: ExternalLibrary.open('libcrawlberg_dart.so'))\`.")
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --notes "$notes"
+            gh release upload "$tag" dist/* --clobber
+          else
+            gh release create "$tag" dist/* --title "crawlberg ${VERSION}" --notes "$notes" --prerelease
+          fi
