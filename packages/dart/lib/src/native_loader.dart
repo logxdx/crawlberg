@@ -20,10 +20,11 @@ import 'package:http/http.dart' as http;
 /// subdirectory both derive from this, so a downloaded native can never
 /// mismatch the package version: an upgrade changes the cache path and forces
 /// a fresh download.
-const String nativeModuleVersion = '1.12.4';
+const String nativeModuleVersion = '1.12.4+prowler.1';
 
 /// GitHub repository base URL (e.g. `https://github.com/owner/repo`).
-const String nativeRepoUrl = 'https://github.com/xberg-io/crawlberg';
+// ~keep prowler: the fork's natives come from the fork's releases (prowler-release.yaml).
+const String nativeRepoUrl = 'https://github.com/logxdx/crawlberg';
 
 /// Release-asset name prefix and cache namespace (the package name).
 const String nativeAssetPrefix = 'crawlberg';
