@@ -45,13 +45,19 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # BoringSSL (stealth transport) assembles with NASM on Windows.
-      - name: NASM (Windows)
+      # BoringSSL (stealth transport) assembles with NASM on Windows. The wheel must use the
+      # MSVC toolchain: rustup installed from a Unix shell picks the GNU host, and rusty_v8
+      # publishes no prebuilt V8 for x86_64-pc-windows-gnu.
+      - name: NASM and MSVC toolchain (Windows)
+        id: windows
         if: runner.os == 'Windows'
         shell: bash
         run: |
           choco install -y --no-progress nasm
           echo "C:\\Program Files\\NASM" >> "$GITHUB_PATH"
+          channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "${channel}-x86_64-pc-windows-msvc" --profile minimal
+          echo "toolchain=${channel}-x86_64-pc-windows-msvc" >> "$GITHUB_OUTPUT"
 
       # One abi3 wheel per platform (pyo3/abi3-py310). The stealth transport needs cmake,
       # libclang (bindgen) and perl inside the manylinux container.
@@ -65,6 +71,7 @@ jobs:
           manylinux-aarch64-image: manylinux_2_28
           cibw-before-build-linux: "dnf install -y cmake clang-devel perl && pip install maturin uv && source ~/.cargo/env"
           cibw-environment-macos: 'MATURIN_BUILD_ARGS="" CARGO_BUILD_LOCKED=true MACOSX_DEPLOYMENT_TARGET=11.0'
+          cibw-environment-windows: 'MATURIN_BUILD_ARGS="" CARGO_BUILD_LOCKED=true RUSTUP_TOOLCHAIN=${{ steps.windows.outputs.toolchain }}'
 
       - uses: actions/upload-artifact@v7
         with:
