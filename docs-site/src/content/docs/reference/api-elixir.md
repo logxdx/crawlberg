@@ -7,7 +7,7 @@ title: "Elixir API Reference"
 <!-- To regenerate: alef docs -->
 <!-- To verify freshness: alef verify -->
 
-## Elixir API Reference <span class="version-badge">v1.13.1</span>
+## Elixir API Reference <span class="version-badge">v1.13.1+prowler.1</span>
 
 ### Functions
 

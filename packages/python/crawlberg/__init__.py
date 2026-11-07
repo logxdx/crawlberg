@@ -4,7 +4,7 @@
 # To verify freshness: alef verify
 """Public API for _crawlberg.
 
-Version: 1.13.1
+Version: 1.13.1+prowler.1
 """
 
 from ._crawlberg import (
@@ -108,6 +108,8 @@ from .options import (
     WafBlockDetails,
 )
 from ._crawlberg import shutdown_async_runtime
+from ._logging import init_logging
+from ._shutdown import shutdown_engine
 
 __all__ = [
     "ActionResult",
@@ -199,10 +201,12 @@ __all__ = [
     "crawl_stream",
     "create_engine",
     "generate_citations",
+    "init_logging",
     "interact",
     "map_urls",
     "scrape",
     "shutdown_async_runtime",
+    "shutdown_engine",
 ]
 
-__version__ = "1.13.1"
+__version__ = "1.13.1+prowler.1"

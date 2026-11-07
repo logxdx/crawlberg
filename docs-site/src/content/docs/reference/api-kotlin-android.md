@@ -7,7 +7,7 @@ title: "Kotlin (Android) API Reference"
 <!-- To regenerate: alef docs -->
 <!-- To verify freshness: alef verify -->
 
-## Kotlin (Android) API Reference <span class="version-badge">v1.13.1</span>
+## Kotlin (Android) API Reference <span class="version-badge">v1.13.1+prowler.1</span>
 
 ### Functions
 
