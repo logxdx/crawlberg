@@ -59,13 +59,23 @@ jobs:
           rustup toolchain install "${channel}-x86_64-pc-windows-msvc" --profile minimal
           echo "toolchain=${channel}-x86_64-pc-windows-msvc" >> "$GITHUB_OUTPUT"
 
-      # One abi3 wheel per platform (pyo3/abi3-py310). The stealth transport needs cmake,
-      # libclang (bindgen) and perl inside the manylinux container.
+      # The package is abi3 from its requires-python floor up, so one wheel per platform is
+      # built with that floor's interpreter. Read from pyproject, as upstream raises it.
+      - name: Python floor
+        id: py
+        shell: bash
+        run: |
+          minor=$(sed -n 's/^requires-python = ">=3\.\([0-9]*\)"$/\1/p' packages/python/pyproject.toml)
+          test -n "$minor"
+          echo "build=cp3${minor}-*" >> "$GITHUB_OUTPUT"
+
+      # The stealth transport needs cmake, libclang (bindgen) and perl inside the manylinux
+      # container.
       - uses: xberg-io/actions/build-python-wheels@v1
         with:
           python-version: "3.13"
           package-dir: packages/python
-          cibw-build: "cp310-*"
+          cibw-build: ${{ steps.py.outputs.build }}
           upload-artifact: "false"
           manylinux-x86_64-image: manylinux_2_28
           manylinux-aarch64-image: manylinux_2_28
@@ -164,7 +174,7 @@ jobs:
           notes=$(printf '%s\n' \
             "Built from \`${GITHUB_SHA}\` on \`${GITHUB_REF_NAME}\`." \
             "" \
-            "Python (abi3, CPython 3.10+): \`pip install crawlberg==${VERSION} --find-links https://github.com/${GITHUB_REPOSITORY}/releases/expanded_assets/${tag}\`" \
+            "Python (abi3): \`pip install crawlberg==${VERSION} --find-links https://github.com/${GITHUB_REPOSITORY}/releases/expanded_assets/${tag}\`" \
             "" \
             "Dart: \`dart run crawlberg:download_libs\` fetches the \`crawlberg-dart-v${VERSION}-<os>-<arch>\` asset for Linux, macOS and Windows." \
             "Android (Flutter): put \`libcrawlberg_dart.so\` from \`crawlberg-dart-v${VERSION}-android-<abi>.tar.gz\` under \`android/app/src/main/jniLibs/<abi>/\` and call \`RustLib.init(externalLibrary: ExternalLibrary.open('libcrawlberg_dart.so'))\`.")
