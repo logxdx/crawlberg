@@ -28,7 +28,7 @@ crate-type = ["cdylib"]
 [dependencies]
 async-trait.workspace = true
 base64.workspace = true
-crawlberg = { version = "1.13.0", path = "../crawlberg", features = ["interact", "browser-chromiumoxide"] }
+crawlberg = { version = "1.13.0+prowler.1", path = "../crawlberg", features = ["interact", "browser-chromiumoxide"] }
 futures-util = "0.3"
 jni = "0.22"
 serde_json.workspace = true

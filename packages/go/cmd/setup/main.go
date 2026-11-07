@@ -49,7 +49,7 @@ const (
 	ffiLibName        = "crawlberg_ffi"
 	crateName         = "crawlberg"
 	shimFilename      = "crawlberg_cgo_link.go"
-	versionIdent      = "1_13_0"
+	versionIdent      = "1_13_0_prowler_1"
 	envOverrideVar    = "CRAWLBERG_GO_NATIVE_BASE_URL"
 	bindingImportPath = "github.com/xberg-io/crawlberg/packages/go"
 	bindingImportName = "crawlbergnativesetup"

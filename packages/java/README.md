@@ -98,7 +98,7 @@ Panama FFM API (Java 21+) for zero-overhead native calls with full type safety.
 <dependency>
     <groupId>io.xberg.crawlberg</groupId>
     <artifactId>crawlberg</artifactId>
-    <version>1.13.0</version>
+    <version>1.13.0+prowler.1</version>
 </dependency>
 
 ```

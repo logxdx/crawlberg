@@ -12,7 +12,7 @@ defmodule Crawlberg.MixProject do
   def project do
     [
       app: :crawlberg,
-      version: "1.13.0",
+      version: "1.13.0+prowler.1",
       elixir: "~> 1.17",
       elixirc_paths: ["lib", Path.expand("../../packages/elixir/native/crawlberg_nif/src", __DIR__)],
       rustler_crates: [

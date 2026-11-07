@@ -7,7 +7,7 @@ title: "Java API Reference"
 <!-- To regenerate: alef docs -->
 <!-- To verify freshness: alef verify -->
 
-## Java API Reference <span class="version-badge">v1.13.0</span>
+## Java API Reference <span class="version-badge">v1.13.0+prowler.1</span>
 
 ### Functions
 

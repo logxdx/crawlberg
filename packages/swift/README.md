@@ -95,7 +95,7 @@ Via swift-bridge for macOS, iOS, and Linux with native Swift types and async/awa
 ## Installation
 
 ```bash
-.package(url: "https://github.com/xberg-io/crawlberg", exact: "1.13.0")
+.package(url: "https://github.com/xberg-io/crawlberg", exact: "1.13.0+prowler.1")
 ```
 
 ## Agent plugin

@@ -7,7 +7,7 @@ title: "Ruby API Reference"
 <!-- To regenerate: alef docs -->
 <!-- To verify freshness: alef verify -->
 
-## Ruby API Reference <span class="version-badge">v1.13.0</span>
+## Ruby API Reference <span class="version-badge">v1.13.0+prowler.1</span>
 
 ### Functions
 
